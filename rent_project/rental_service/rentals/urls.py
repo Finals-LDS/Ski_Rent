@@ -14,7 +14,6 @@ router.register(r'api/rentals', EquipmentTypeViewSet)
 router.register(r'api/rentals', PaymentViewSet)
 
 urlpatterns = [
-    path('', dashboard, name='dashboard'),
     path('settings/', settings_view, name='settings'),
     path('rentals/create-draft/', create_draft, name='create_draft'),
     path('rentals/<int:pk>/delete/', delete_rental, name='delete_rental'),

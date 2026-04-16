@@ -239,28 +239,28 @@
 
   <nav class="nav">
     <div class="nav-section">Основное</div>
-    <a href="#" class="active">
+    <a href="{% url 'dashboard' %}" class="active">
       <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
       Дашборд
     </a>
 
     {% if is_manager %}
     <div class="nav-section">Операции</div>
-    <a href="#">
+    <a href="{% url 'clients' %}">
       <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
       Клиенты
     </a>
-    <a href="#">
+    <a href="{% url 'equipment' %}">
       <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg>
       Снаряжение
     </a>
-    <a href="#">
+    <a href="{% url 'rentals' %}">
       <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
       Аренды
     </a>
     {% endif %}
 
-    <a href="#">
+    <a href="{% url 'payments' %}">
       <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
       Платежи
     </a>
@@ -312,14 +312,14 @@
         </div>
         <span class="stat-trend up">↑ 12%</span>
       </div>
-      <div class="stat-value">—</div>
+      <div class="stat-value">{{ active_clients_count }}</div>
       <div class="stat-label">Активных клиентов</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon" style="background:linear-gradient(135deg,#a371f7,#8b5cf6)">
         <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
       </div>
-      <div class="stat-value">—</div>
+      <div class="stat-value">{{ active_rentals_count }}</div>
       <div class="stat-label">Активных аренд</div>
     </div>
     {% endif %}
@@ -328,7 +328,7 @@
       <div class="stat-icon" style="background:linear-gradient(135deg,#3fb950,#2da44e)">
         <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
       </div>
-      <div class="stat-value">—</div>
+      <div class="stat-value">{{ total_income_month }}</div>
       <div class="stat-label">Выручка (месяц)</div>
     </div>
 
@@ -337,7 +337,7 @@
       <div class="stat-icon" style="background:linear-gradient(135deg,#d29922,#f59e0b)">
         <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg>
       </div>
-      <div class="stat-value">—</div>
+      <div class="stat-value">{{ equipment_units_total }}</div>
       <div class="stat-label">Единиц снаряжения</div>
     </div>
     {% endif %}
@@ -423,19 +423,19 @@
   {% if is_manager %}
   <div class="section-title">Быстрые действия</div>
   <div class="actions-grid">
-    <a href="#" class="action-btn">
+    <a href="{% url 'rentals' %}" class="action-btn">
       <svg viewBox="0 0 24 24" fill="#4facfe"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
       <span>Новая аренда</span>
     </a>
-    <a href="#" class="action-btn">
+    <a href="{% url 'payments' %}" class="action-btn">
       <svg viewBox="0 0 24 24" fill="#3fb950"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
       <span>Принять оплату</span>
     </a>
-    <a href="#" class="action-btn">
+    <a href="{% url 'clients' %}" class="action-btn">
       <svg viewBox="0 0 24 24" fill="#a371f7"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
       <span>Добавить клиента</span>
     </a>
-    <a href="#" class="action-btn">
+    <a href="{% url 'equipment' %}" class="action-btn">
       <svg viewBox="0 0 24 24" fill="#d29922"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg>
       <span>Добавить снаряжение</span>
     </a>
