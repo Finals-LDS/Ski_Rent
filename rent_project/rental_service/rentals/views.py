@@ -8,7 +8,7 @@ from payments.models import Payment
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .serializers import RentalSerializer
+from .serializers import RentalSerializer, PaymentSerializer
 
 
 def dashboard(request):
@@ -102,6 +102,10 @@ def settings_view(request):
 class RentalViewSet(ModelViewSet):
     queryset = Rental.objects.all()
     serializer_class = RentalSerializer
+
+class PaymentViewSet(ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
 
 
 class DashboardView(APIView):
