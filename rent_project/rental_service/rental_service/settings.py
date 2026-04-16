@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "rentals",
     "web",
     "payments",
+    "users",
 
     # third-party
     "rest_framework",
@@ -90,6 +91,7 @@ DATABASES = {
 }
 
 # AUTH
+AUTH_USER_MODEL = "users.User"
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
