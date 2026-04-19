@@ -7,7 +7,6 @@ def calculate_rental_price(rental: Rental):
     for item in rental.items.all():
         total += item.price_per_day * item.days
 
-    # скидки
     discount = Discount.objects.filter(min_days_lte=item.days).order_by('-percent').first()
 
     if discount:

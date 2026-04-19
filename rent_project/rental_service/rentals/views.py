@@ -3,10 +3,20 @@ from django.shortcuts import render, redirect, get_object_or_404
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 from rest_framework.response import Response
-
 from equipment.models import Equipment, EquipmentType
 from rentals.models import Rental, Discount, PriceModifier, Payment
 from .serializers import RentalSerializer, PaymentSerializer
+from .models import Contract
+from .services import (
+    generate_contract_text,
+    can_start_rental,
+    get_category_stats,
+    get_dashboard_stats,
+    get_inventory_stats,
+    get_top_clients
+)
+from django.utils import timezone
+from rest_framework.decorators import action
 
 
 ACTIVE_RENTAL_STATUSES = ("open", "booked", "rented")
@@ -103,12 +113,79 @@ class RentalViewSet(ModelViewSet):
     queryset = Rental.objects.all()
     serializer_class = RentalSerializer
 
+    @action(detail=True, methods=['post'])
+    def activate(self,request, pk=None):
+        rental = self.get_object()
+        rental.status = 'active'
+        rental.save()
+        return Response({'status': 'activated'})
+    
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        rental = self.get_objects()
+        rental.status = 'closed'
+        rental.save()
+        return Response({'status': 'closed'})
+
 
 class PaymentViewSet(ModelViewSet):
-    queryset = Payment.objects.all()
+    queryset = Payment.objects.select_related('client').prefetch_related('items')
     serializer_class = PaymentSerializer
 
 
 class DashboardView(APIView):
     def get(self, request):
-        return Response({"total_rentals": Rental.objects.count()})
+        data = {
+            "stats": get_dashboard_stats(),
+            "inventory": get_inventory_stats(),
+            "categories": get_category_stats(),
+            "top_clients": list(get_top_clients())
+        }
+        return Response(data)
+    
+class CreateContractView(APIView):
+    def post(self, request, rental_id):
+        rental = Rental.objects.get(id=rental_id)
+        client = rental.client
+
+        contract = Contract.objects.create(
+            client=client,
+            rental=rental,
+            text=generate_contract_text(client, rental),
+            status='sent'
+        )
+
+        return Response({
+            "contract_id": contract.id,
+            "text": contract.text
+        })
+    
+class AcceptContractView(APIView):
+    def post(self, request, contract_id):
+        contract = Contract.objects.get(id=contract_id)
+
+        # проверка: нельзя принять дважды
+        if contract.status == 'accepted':
+            return Response({"error": "Уже принят"}, status=400)
+        
+        contract.status = 'accepted'
+        contract.accepted_at = timezone.now()
+
+        # сюда можно будет потом подпись засунуть
+        contract.signature_data = request.data.get('signature')
+
+        contract.save()
+
+        return Response({"status": "Договор принят"})
+    
+class StartRentalView(APIView):
+    def post(self, request, rental_id):
+        rental = Rental.objects.geet(id=rental_id)
+
+        if not can_start_rental(rental):
+            return Response({"error": "Договор не принят"}, status=400)
+        
+        rental.status = 'active'
+        rental.save()
+
+        return Response({"status": "Аренда начата"})

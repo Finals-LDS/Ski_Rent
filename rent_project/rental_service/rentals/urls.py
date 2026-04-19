@@ -1,9 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import (
-    dashboard, create_draft, delete_rental,
-    change_status, settings_view, RentalViewSet, DashboardView, PaymentViewSet
-)
+from .views import *
 from equipment.views import ClientViewSet, EquipmentViewSet, EquipmentTypeViewSet
 
 router = DefaultRouter()
@@ -19,4 +16,7 @@ urlpatterns = [
     path('rentals/<int:pk>/delete/', delete_rental, name='delete_rental'),
     path('rentals/<int:pk>/status/', change_status, name='change_status'),
     path('api/dashboard/', DashboardView.as_view(), name='api_dashboard'),
+    path('contract/create/<int:rental_id>/', CreateContractView.as_view()),
+    path('contract/accept/<int:contract_id>/', AcceptContractView.as_view()),
+    path('rental/start/<int:rental_id>/', StartRentalView.as_view()),
 ] + router.urls

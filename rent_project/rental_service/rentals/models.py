@@ -20,8 +20,10 @@ class Rental(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='rentals', null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -63,6 +65,9 @@ class RentalItem(models.Model):
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
     days = models.IntegerField(default=1)
 
+    def get_total(self):
+        return self.price_per_day * self.days
+
     def save(self, *args, **kwargs):
         if not self.price_per_day:
             self.price_per_day = self.equipment.price_per_day
@@ -100,3 +105,27 @@ class Payment(models.Model):
     payment_method = models.CharField(max_length=20)
     status = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
+
+class Contract(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Черновик'),
+        ('sent', 'Отправлен'),
+        ('accepted', 'Принят'),
+        ('rejected', 'Отклонен'),
+    ]
+
+    client = models.ForeignKey('clients.Client', on_delete=models.CASCADE)
+    rental = models.OneToOneField('rentals.Rental', on_delete=models.CASCADE)
+
+    text = models.TextField()
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
+    signature_data = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Договор #{self.id} - {self.client.full_name}"

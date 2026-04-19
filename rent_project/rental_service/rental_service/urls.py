@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from users.views import CustomTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
+from equipment.views import RegisterView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -9,6 +10,7 @@ urlpatterns = [
     # JWT auth (кастомный — включает роль)
     path("api/token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path('api/register/', RegisterView.as_view()),
 
     # Users API
     path("api/users/", include("users.urls")),
