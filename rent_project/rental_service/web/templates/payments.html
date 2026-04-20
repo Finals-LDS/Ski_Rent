@@ -1,4 +1,3 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -21,123 +20,79 @@
       --purple: #a371f7;
     }
     body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; min-height: 100vh; }
-    .sidebar {
-      position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
-      background: var(--surface); border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; z-index: 100;
-    }
-    .sidebar-brand {
-      padding: 20px 20px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border);
-    }
-    .brand-ico {
-      width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--purple));
-      border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 240px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; }
+    .sidebar-brand { padding: 20px 20px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+    .brand-ico { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .brand-ico svg { width: 20px; height: 20px; fill: white; }
     .brand-name { font-size: 15px; font-weight: 700; }
     .brand-sub { font-size: 11px; color: var(--text-muted); }
     .nav { padding: 16px 12px; flex: 1; }
     .nav-section { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 8px 8px 6px; }
-    .nav a {
-      display: flex; align-items: center; gap: 10px;
-      padding: 9px 10px; border-radius: 8px; color: var(--text-muted);
-      text-decoration: none; font-size: 14px; transition: background 0.15s, color 0.15s; margin-bottom: 2px;
-    }
+    .nav a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: background 0.15s, color 0.15s; margin-bottom: 2px; }
     .nav a:hover, .nav a.active { background: rgba(79,172,254,0.12); color: var(--accent); }
     .nav a svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
     .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
     .user-info { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: var(--surface2); margin-bottom: 10px; }
-    .user-avatar {
-      width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--purple));
-      border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0;
-    }
+    .user-avatar { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
     .user-name { font-size: 13px; font-weight: 600; }
-    .user-role {
-      display: inline-flex; align-items: center; font-size: 10px; font-weight: 700;
-      padding: 2px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
-    }
+    .user-role { display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
     .role-admin { background: rgba(163,113,247,0.2); color: var(--purple); }
     .role-manager { background: rgba(79,172,254,0.2); color: var(--accent); }
     .role-cashier { background: rgba(63,185,80,0.2); color: var(--green); }
-    .btn-logout {
-      display: flex; align-items: center; justify-content: center; width: 100%;
-      padding: 9px; background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.25);
-      border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 600; text-decoration: none;
-      transition: background 0.15s;
-    }
-    .btn-logout {
-      display: flex; align-items: center; gap: 8px; justify-content: center;
-      width: 100%; padding: 9px;
-      background: rgba(248,81,73,0.12);
-      border: 1px solid rgba(248,81,73,0.25);
-      border-radius: 8px;
-      color: var(--red);
-      font-size: 13px; font-weight: 500;
-      text-decoration: none;
-      transition: background 0.15s;
-    }
+    .btn-logout { display: flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding: 9px; background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.25); border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.15s; }
     .btn-logout:hover { background: rgba(248,81,73,0.22); }
     .btn-logout svg { width: 16px; height: 16px; fill: currentColor; }
-
     .main { margin-left: 240px; padding: 28px 32px; min-height: 100vh; }
     .page-header { margin-bottom: 22px; }
     .page-header h2 { font-size: 22px; font-weight: 800; }
-    .page-header p { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 18px; }
     .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
-    .stat-icon {
-      width: 38px; height: 38px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-    }
+    .stat-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
     .stat-icon svg { width: 20px; height: 20px; fill: white; }
     .stat-value { font-size: 26px; font-weight: 800; }
     .stat-label { font-size: 13px; color: var(--text-muted); }
     .section-title { font-size: 16px; font-weight: 700; margin: 18px 0 12px; }
-    .form-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-    label { font-size: 12px; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; display: block; }
-    input, select {
-      width: 100%;
-      padding: 10px 12px;
-      background: rgba(28,33,48,0.75);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      outline: none;
-    }
-    .btn-primary {
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: rgba(79,172,254,0.12);
-      border: 1px solid rgba(79,172,254,0.3);
-      color: var(--accent);
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .error {
-      color: var(--red);
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
     .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
     th { color: var(--text-muted); font-weight: 700; text-align: left; background: rgba(255,255,255,0.02); }
     tr:last-child td { border-bottom: none; }
     .muted { color: var(--text-muted); }
-    .badge {
-      display: inline-flex; align-items: center;
-      font-size: 10px; font-weight: 800;
-      padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
-      background: rgba(230,237,243,0.07); color: var(--text-muted);
-    }
+    .badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(230,237,243,0.07); color: var(--text-muted); }
+
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .search-wrap { position: relative; flex: 1; min-width: 220px; }
+    .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; fill: var(--text-muted); pointer-events: none; }
+    .search-input { width: 100%; padding: 9px 12px 9px 34px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+    .search-input:focus { border-color: rgba(79,172,254,0.4); }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .filter-dropdown { position: relative; }
+    .filter-btn { display: flex; align-items: center; gap: 7px; padding: 9px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color 0.15s, color 0.15s; white-space: nowrap; user-select: none; }
+    .filter-btn:hover { border-color: rgba(79,172,254,0.35); color: var(--accent); }
+    .filter-btn.active { border-color: rgba(79,172,254,0.5); color: var(--accent); background: rgba(79,172,254,0.07); }
+    .filter-btn svg { width: 14px; height: 14px; fill: currentColor; }
+    .filter-btn .chevron { width: 12px; height: 12px; transition: transform 0.2s; }
+    .filter-btn.open .chevron { transform: rotate(180deg); }
+
+    .dropdown-panel { position: absolute; top: calc(100% + 6px); left: 0; min-width: 200px; background: #1a2032; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 200; display: none; animation: dropIn 0.15s ease; }
+    .dropdown-panel.show { display: block; }
+    @keyframes dropIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+    .dropdown-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 4px 8px 6px; }
+    .dropdown-option { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--text-muted); transition: background 0.1s, color 0.1s; }
+    .dropdown-option:hover { background: rgba(79,172,254,0.1); color: var(--text); }
+    .dropdown-option.selected { color: var(--accent); background: rgba(79,172,254,0.1); }
+    .dropdown-option .opt-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.8; flex-shrink: 0; }
+    .dropdown-divider { height: 1px; background: var(--border); margin: 6px 0; }
+    .dropdown-clear { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--text-muted); transition: color 0.1s; }
+    .dropdown-clear:hover { color: var(--red); }
+
+    .sort-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 700; padding: 0; }
+    .sort-btn:hover { color: var(--accent); }
+    .sort-btn svg { width: 13px; height: 13px; fill: currentColor; }
+
+    .no-results { padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px; }
+    .no-results svg { width: 36px; height: 36px; fill: var(--text-muted); opacity: 0.4; margin-bottom: 10px; display: block; margin-inline: auto; }
   </style>
 </head>
 <body>
@@ -151,14 +106,12 @@
         <div class="brand-sub">CRM система</div>
       </div>
     </div>
-
     <nav class="nav">
       <div class="nav-section">Основное</div>
       <a href="{% url 'dashboard' %}">
         <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
         Дашборд
       </a>
-
       {% if is_manager %}
         <div class="nav-section">Операции</div>
         <a href="{% url 'clients' %}">
@@ -170,16 +123,14 @@
           Снаряжение
         </a>
         <a href="{% url 'rentals' %}">
-          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
           Аренды
         </a>
       {% endif %}
-
       <a href="{% url 'payments' %}" class="active">
         <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
         Платежи
       </a>
-
       {% if is_admin %}
         <div class="nav-section">Управление</div>
         <a href="{% url 'users' %}">
@@ -188,18 +139,12 @@
         </a>
       {% endif %}
     </nav>
-
     <div class="sidebar-footer">
       <div class="user-info">
         <div class="user-avatar">{{ user.username|first|upper }}</div>
         <div>
           <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
-          <span class="user-role
-            {% if role == 'admin' %}role-admin
-            {% elif role == 'manager' %}role-manager
-            {% else %}role-cashier{% endif %}">
-            {{ role }}
-          </span>
+          <span class="user-role {% if role == 'admin' %}role-admin{% elif role == 'manager' %}role-manager{% else %}role-cashier{% endif %}">{{ role }}</span>
         </div>
       </div>
       <a href="/logout/" class="btn-logout">
@@ -210,30 +155,21 @@
   </aside>
 
   <main class="main">
-    <div class="page-header">
-      <h2>Платежи</h2>
-
-    </div>
+    <div class="page-header"><h2>Платежи</h2></div>
 
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#3fb950,#2da44e)">
-          <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
-        </div>
+        <div class="stat-icon" style="background:linear-gradient(135deg,#3fb950,#2da44e)"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></div>
         <div class="stat-value">{{ total_income_month }}</div>
         <div class="stat-label">Выручка за месяц</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#d29922,#f59e0b)">
-          <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg>
-        </div>
+        <div class="stat-icon" style="background:linear-gradient(135deg,#d29922,#f59e0b)"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg></div>
         <div class="stat-value">{{ paid_in_month_count }}</div>
         <div class="stat-label">Оплачено за месяц (шт.)</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#a371f7,#8b5cf6)">
-          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
-        </div>
+        <div class="stat-icon" style="background:linear-gradient(135deg,#a371f7,#8b5cf6)"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg></div>
         <div class="stat-value">{{ payment_methods_count }}</div>
         <div class="stat-label">Методов оплаты (за месяц)</div>
       </div>
@@ -243,19 +179,11 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr>
-            <th>Метод</th>
-            <th>Кол-во</th>
-            <th>Сумма</th>
-          </tr>
+          <tr><th>Метод</th><th>Кол-во</th><th>Сумма</th></tr>
         </thead>
         <tbody>
           {% for m in payment_methods_breakdown %}
-            <tr>
-              <td>{{ m.payment_method }}</td>
-              <td>{{ m.count }}</td>
-              <td>{{ m.total }}</td>
-            </tr>
+            <tr><td>{{ m.payment_method }}</td><td>{{ m.count }}</td><td>{{ m.total }}</td></tr>
           {% empty %}
             <tr><td colspan="3" class="muted">Пока нет оплаченных платежей за месяц</td></tr>
           {% endfor %}
@@ -264,27 +192,77 @@
     </div>
 
     <div class="section-title">Последние платежи</div>
-    <div class="table-wrap" style="margin-top: 12px;">
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input type="text" class="search-input" id="paySearch" placeholder="Поиск по договору или клиенту…">
+      </div>
+
+      <div class="filter-dropdown">
+        <div class="filter-btn" id="methodFilterBtn" onclick="toggleDropdown('methodDropdown', this)">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          Метод оплаты
+          <svg class="chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="dropdown-panel" id="methodDropdown">
+          <div class="dropdown-label">Метод оплаты</div>
+          <div id="methodOptions"></div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-clear" onclick="clearFilter('method', 'methodFilterBtn')">✕ Сбросить</div>
+        </div>
+      </div>
+
+      <div class="filter-dropdown">
+        <div class="filter-btn" id="statusFilterBtn" onclick="toggleDropdown('statusDropdown', this)">
+          <svg viewBox="0 0 24 24"><path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 18.95 4H5.04a1 1 0 0 0-.79 1.61z"/></svg>
+          Статус
+          <svg class="chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="dropdown-panel" id="statusDropdown">
+          <div class="dropdown-label">Статус платежа</div>
+          <div class="dropdown-option" data-filter="status" data-value="paid" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--green)"></span> Оплачен</div>
+          <div class="dropdown-option" data-filter="status" data-value="pending" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--yellow)"></span> Ожидает</div>
+          <div class="dropdown-option" data-filter="status" data-value="failed" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--red)"></span> Ошибка</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-clear" onclick="clearFilter('status', 'statusFilterBtn')">✕ Сбросить</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Договор</th>
-            <th>Клиент</th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('contract')">Договор <svg id="sort-contract-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('client')">Клиент <svg id="sort-client-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
             <th>Итого договора</th>
             <th>Метод</th>
-            <th>Сумма платежа</th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('amount')">Сумма платежа <svg id="sort-amount-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
             <th>Статус</th>
-            <th class="muted">Создан</th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('date')">Создан <svg id="sort-date-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="paymentsBody">
           {% for p in payments %}
-            <tr>
+            <tr class="payment-row"
+              data-contract="{{ p.rental.contract_number|lower }}"
+              data-client="{{ p.rental.client.full_name|default:''|lower }}"
+              data-method="{{ p.payment_method|lower }}"
+              data-status="{{ p.status }}"
+              data-amount="{{ p.amount }}"
+              data-date="{{ p.created_at|date:'Y-m-d' }}">
               <td>{{ p.rental.contract_number }}</td>
               <td>{{ p.rental.client.full_name|default:"—" }}</td>
-              <td>
-                {% if p.rental.total_price is not None %}{{ p.rental.total_price }}{% else %}—{% endif %}
-              </td>
+              <td>{% if p.rental.total_price is not None %}{{ p.rental.total_price }}{% else %}—{% endif %}</td>
               <td>{{ p.payment_method }}</td>
               <td>{{ p.amount }}</td>
               <td>
@@ -301,8 +279,107 @@
           {% endfor %}
         </tbody>
       </table>
+      <div class="no-results" id="noResults" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        Ничего не найдено по вашему запросу
+      </div>
     </div>
   </main>
+
+  <script>
+    let activeFilters = { method: null, status: null };
+    let sortState = { col: null, dir: 1 };
+
+    document.getElementById('paySearch').addEventListener('input', applyAll);
+
+    function buildMethodOptions() {
+      const rows = document.querySelectorAll('.payment-row');
+      const methods = new Set();
+      rows.forEach(r => { if (r.dataset.method) methods.add(r.dataset.method); });
+      const container = document.getElementById('methodOptions');
+      container.innerHTML = '';
+      methods.forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'dropdown-option';
+        el.dataset.filter = 'method';
+        el.dataset.value = m;
+        el.innerHTML = `<span class="opt-dot" style="color:var(--accent)"></span> ${m}`;
+        el.onclick = () => selectFilter(el);
+        container.appendChild(el);
+      });
+    }
+
+    function toggleDropdown(id, btn) {
+      const panel = document.getElementById(id);
+      const isOpen = panel.classList.contains('show');
+      document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
+      if (!isOpen) { panel.classList.add('show'); btn.classList.add('open'); }
+    }
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.filter-dropdown')) {
+        document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
+      }
+    });
+
+    function selectFilter(el) {
+      const filter = el.dataset.filter;
+      const value = el.dataset.value;
+      document.querySelectorAll(`[data-filter="${filter}"]`).forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      activeFilters[filter] = value;
+      const btnId = filter === 'method' ? 'methodFilterBtn' : 'statusFilterBtn';
+      document.getElementById(btnId).classList.add('active');
+      applyAll();
+    }
+
+    function clearFilter(filter, btnId) {
+      activeFilters[filter] = null;
+      document.querySelectorAll(`[data-filter="${filter}"]`).forEach(o => o.classList.remove('selected'));
+      document.getElementById(btnId).classList.remove('active');
+      applyAll();
+    }
+
+    function applyAll() {
+      const q = document.getElementById('paySearch').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('.payment-row');
+      let visible = 0;
+      rows.forEach(row => {
+        let show = true;
+        if (q && !row.dataset.contract.includes(q) && !row.dataset.client.includes(q)) show = false;
+        if (activeFilters.method && row.dataset.method !== activeFilters.method) show = false;
+        if (activeFilters.status && row.dataset.status !== activeFilters.status) show = false;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      document.getElementById('visibleCount').textContent = visible;
+      document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    function sortTable(col) {
+      if (sortState.col === col) sortState.dir *= -1;
+      else { sortState.col = col; sortState.dir = 1; }
+      ['contract','client','amount','date'].forEach(c => {
+        const ico = document.getElementById(`sort-${c}-ico`);
+        if (ico) ico.style.opacity = c === col ? '1' : '0.4';
+      });
+      const tbody = document.getElementById('paymentsBody');
+      const rows = Array.from(tbody.querySelectorAll('.payment-row'));
+      rows.sort((a, b) => {
+        if (col === 'contract') return a.dataset.contract.localeCompare(b.dataset.contract) * sortState.dir;
+        if (col === 'client') return a.dataset.client.localeCompare(b.dataset.client) * sortState.dir;
+        if (col === 'date') return a.dataset.date.localeCompare(b.dataset.date) * sortState.dir;
+        if (col === 'amount') return ((parseFloat(a.dataset.amount)||0) - (parseFloat(b.dataset.amount)||0)) * sortState.dir;
+        return 0;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+      applyAll();
+    }
+
+    buildMethodOptions();
+    applyAll();
+  </script>
 </body>
 </html>
-
