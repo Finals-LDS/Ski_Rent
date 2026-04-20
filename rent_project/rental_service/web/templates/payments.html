@@ -65,7 +65,20 @@
       border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 600; text-decoration: none;
       transition: background 0.15s;
     }
+    .btn-logout {
+      display: flex; align-items: center; gap: 8px; justify-content: center;
+      width: 100%; padding: 9px;
+      background: rgba(248,81,73,0.12);
+      border: 1px solid rgba(248,81,73,0.25);
+      border-radius: 8px;
+      color: var(--red);
+      font-size: 13px; font-weight: 500;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
     .btn-logout:hover { background: rgba(248,81,73,0.22); }
+    .btn-logout svg { width: 16px; height: 16px; fill: currentColor; }
+
     .main { margin-left: 240px; padding: 28px 32px; min-height: 100vh; }
     .page-header { margin-bottom: 22px; }
     .page-header h2 { font-size: 22px; font-weight: 800; }
@@ -169,7 +182,7 @@
 
       {% if is_admin %}
         <div class="nav-section">Управление</div>
-        <a href="#">
+        <a href="{% url 'users' %}">
           <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
           Пользователи
         </a>
@@ -189,26 +202,29 @@
           </span>
         </div>
       </div>
-      <a href="/logout/" class="btn-logout">Выйти</a>
+      <a href="/logout/" class="btn-logout">
+        <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        Выйти
+      </a>
     </div>
   </aside>
 
   <main class="main">
     <div class="page-header">
       <h2>Платежи</h2>
-      <p>Ваша роль: <strong>{{ role }}</strong></p>
+
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe)">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#3fb950,#2da44e)">
           <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
         </div>
         <div class="stat-value">{{ total_income_month }}</div>
         <div class="stat-label">Выручка за месяц</div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:linear-gradient(135deg,#3fb950,#2da44e)">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#d29922,#f59e0b)">
           <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg>
         </div>
         <div class="stat-value">{{ paid_in_month_count }}</div>
@@ -222,40 +238,6 @@
         <div class="stat-label">Методов оплаты (за месяц)</div>
       </div>
     </div>
-
-    {% if is_cashier %}
-      <div class="section-title">Создать платеж</div>
-      <div class="form-card">
-        {% if error %}
-          <div class="error">{{ error }}</div>
-        {% endif %}
-        <form method="post" action="{% url 'payments' %}">
-          {% csrf_token %}
-          <div class="form-grid">
-            <div>
-              <label for="rental_id">Договор *</label>
-              <select id="rental_id" name="rental_id" required>
-                <option value="">—</option>
-                {% for r in rentals_for_select %}
-                  <option value="{{ r.id }}">{{ r.contract_number }} — {{ r.client.full_name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div>
-              <label for="payment_method">Метод оплаты *</label>
-              <input id="payment_method" name="payment_method" type="text" required>
-            </div>
-            <div>
-              <label for="amount">Сумма *</label>
-              <input id="amount" name="amount" type="number" step="0.01" required>
-            </div>
-          </div>
-          <div style="margin-top: 12px;">
-            <button class="btn-primary" type="submit">+ Добавить платеж</button>
-          </div>
-        </form>
-      </div>
-    {% endif %}
 
     <div class="section-title">Методы оплаты (за месяц)</div>
     <div class="table-wrap">
