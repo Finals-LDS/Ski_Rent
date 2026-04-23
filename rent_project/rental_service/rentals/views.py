@@ -178,14 +178,66 @@ class AcceptContractView(APIView):
 
         return Response({"status": "Договор принят"})
     
+class SignCardView(APIView):
+    """
+    POST /api/sign/card/<contract_id>/
+
+    Тело запроса (JSON):
+        { "signature": "<base64-XML из NCALayer>" }
+
+    Ответ при успехе:
+        { "ok": true, "status": "signed_card", "signed_at": "ISO datetime" }
+    """
+
+    def post(self, request, contract_id):
+        contract = get_object_or_404(
+            Contract.objects.select_related('client', 'rental'),
+            id=contract_id,
+        )
+
+        # Нельзя подписать дважды
+        if contract.is_signed:
+            return Response(
+                {'ok': False, 'error': 'Договор уже подписан', 'current_status': contract.status},
+                status=http_status.HTTP_409_CONFLICT,
+            )
+
+        raw_sig = (request.data.get('signature') or '').strip()
+        if not raw_sig:
+            return Response(
+                {'ok': False, 'error': 'Отсутствуют данные подписи (signature)'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        now = timezone.now()
+
+        # 1. Сохраняем подпись
+        Signature.objects.create(
+            contract=contract,
+            operator=request.user if request.user.is_authenticated else None,
+            method=Signature.METHOD_CARD,
+            raw_signature=raw_sig,
+        )
+
+        # 2. Обновляем договор
+        contract.status         = 'signed_card'
+        contract.accepted_at    = now
+        contract.signature_data = raw_sig
+        contract.save(update_fields=['status', 'accepted_at', 'signature_data'])
+
+        return Response({
+            'ok':        True,
+            'status':    'signed_card',
+            'signed_at': now.isoformat(),
+            'contract_id': contract.id,
+        })
+
+
 class StartRentalView(APIView):
     def post(self, request, rental_id):
-        rental = Rental.objects.geet(id=rental_id)
-
+        rental = get_object_or_404(Rental, id=rental_id)
         if not can_start_rental(rental):
-            return Response({"error": "Договор не принят"}, status=400)
-        
-        rental.status = 'active'
+            return Response({'error': 'Договор не подписан'}, status=400)
+        rental.status = 'rented'
         rental.save()
-
-        return Response({"status": "Аренда начата"})
+        return Response({'status': 'Аренда начата'})

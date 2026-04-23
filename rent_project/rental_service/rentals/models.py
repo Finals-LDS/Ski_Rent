@@ -2,6 +2,7 @@ from decimal import Decimal
 from django.db import models
 from django.core.exceptions import ValidationError
 from clients.models import Client
+from django.conf import settings
 from equipment.models import Equipment
 import uuid
 
@@ -108,24 +109,70 @@ class Payment(models.Model):
 
 class Contract(models.Model):
     STATUS_CHOICES = [
-        ('draft', 'Черновик'),
-        ('sent', 'Отправлен'),
-        ('accepted', 'Принят'),
-        ('rejected', 'Отклонен'),
+        ('draft',       'Черновик'),
+        ('sent',        'Отправлен'),
+        ('signed_card', 'Подписан через ЭЦП'),   # ← новый (карт-ридер)
+        ('signed_sms',  'Подписан через SMS'),    # ← новый (SMS)
+        ('accepted',    'Принят'),                # ← старый (совместимость)
+        ('rejected',    'Отклонён'),
     ]
 
-    client = models.ForeignKey('clients.Client', on_delete=models.CASCADE)
-    rental = models.OneToOneField('rentals.Rental', on_delete=models.CASCADE)
+    client         = models.ForeignKey('clients.Client', on_delete=models.CASCADE)
+    rental         = models.OneToOneField('rentals.Rental', on_delete=models.CASCADE)
+    text           = models.TextField()
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    accepted_at    = models.DateTimeField(null=True, blank=True)
+    signature_data = models.TextField(null=True, blank=True)  # сырой XML из NCALayer
+    created_at     = models.DateTimeField(auto_now_add=True)
 
-    text = models.TextField()
-
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-
-    accepted_at = models.DateTimeField(null=True, blank=True)
-
-    signature_data = models.TextField(null=True, blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
+    @property
+    def is_signed(self):
+        return self.status in ('signed_card', 'signed_sms', 'accepted')
 
     def __str__(self):
-        return f"Договор #{self.id} - {self.client.full_name}"
+        return f'Договор #{self.id} ({self.client.full_name})'
+
+
+class Signature(models.Model):
+    METHOD_SMS  = 'sms'
+    METHOD_CARD = 'card'
+    METHOD_CHOICES = [
+        (METHOD_CARD, 'ЭЦП (карт-ридер / NCALayer)'),
+        (METHOD_SMS,  'SMS OTP'),
+    ]
+
+    contract   = models.ForeignKey(
+        Contract, on_delete=models.CASCADE,
+        related_name='signatures', verbose_name='Договор',
+    )
+    operator = models.ForeignKey(
+
+        settings.AUTH_USER_MODEL,
+
+        on_delete=models.SET_NULL,
+
+        null=True,
+
+        blank=True,
+
+        related_name='signatures',
+
+        verbose_name='Оператор',
+
+    )
+    method     = models.CharField(
+        max_length=10, choices=METHOD_CHOICES,
+        default=METHOD_CARD, verbose_name='Способ подписания',
+    )
+    # Для карт-ридера: base64-XML из NCALayer
+    # Для SMS: хэш OTP или метка
+    raw_signature = models.TextField(verbose_name='Данные подписи (raw)')
+    signed_at     = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время')
+
+    class Meta:
+        verbose_name        = 'Подпись'
+        verbose_name_plural = 'Подписи'
+        ordering            = ['-signed_at']
+
+    def __str__(self):
+        return f'[{self.get_method_display()}] Договор #{self.contract_id} — {self.signed_at:%d.%m.%Y %H:%M}'

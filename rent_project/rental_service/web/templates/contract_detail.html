@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Договор #{{ contract.id }} — Ski Rent CRM</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:         #0e1117;
+      --surface:    #161b22;
+      --surface2:   #1c2130;
+      --surface3:   #232c3d;
+      --border:     rgba(255,255,255,0.07);
+      --border2:    rgba(255,255,255,0.12);
+      --text:       #e6edf3;
+      --muted:      rgba(230,237,243,0.5);
+      --accent:     #4facfe;
+      --accent2:    #00f2fe;
+      --green:      #3fb950;
+      --yellow:     #d29922;
+      --red:        #f85149;
+      --purple:     #a371f7;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── Sidebar ──────────────────────────────────────────────── */
+    .sidebar { position: fixed; top:0; left:0; bottom:0; width:240px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; z-index:100; }
+    .sb-brand { padding:20px 20px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); }
+    .sb-ico { width:36px; height:36px; background:linear-gradient(135deg,var(--accent),var(--purple)); border-radius:8px; display:flex; align-items:center; justify-content:center; }
+    .sb-ico svg { width:20px; height:20px; fill:white; }
+    .sb-name { font-size:15px; font-weight:700; }
+    .sb-sub  { font-size:11px; color:var(--muted); }
+    .nav { padding:16px 12px; flex:1; overflow-y:auto; }
+    .nav-sec { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--muted); padding:8px 8px 6px; }
+    .nav a { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; color:var(--muted); text-decoration:none; font-size:14px; transition:background .15s,color .15s; margin-bottom:2px; }
+    .nav a:hover,.nav a.active { background:rgba(79,172,254,.12); color:var(--accent); }
+    .nav a svg { width:18px; height:18px; fill:currentColor; flex-shrink:0; }
+    .sb-foot { padding:16px; border-top:1px solid var(--border); }
+    .u-info { display:flex; align-items:center; gap:10px; padding:10px; border-radius:10px; background:var(--surface2); margin-bottom:10px; }
+    .u-ava { width:34px; height:34px; background:linear-gradient(135deg,var(--accent),var(--purple)); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; color:white; flex-shrink:0; }
+    .u-name { font-size:13px; font-weight:600; }
+    .u-role { display:inline-flex; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.5px; }
+    .role-admin   { background:rgba(163,113,247,.2); color:var(--purple); }
+    .role-manager { background:rgba(79,172,254,.2);  color:var(--accent); }
+    .role-cashier { background:rgba(63,185,80,.2);   color:var(--green); }
+    .btn-logout { display:flex; align-items:center; gap:8px; justify-content:center; width:100%; padding:9px; background:rgba(248,81,73,.1); border:1px solid rgba(248,81,73,.2); border-radius:8px; color:var(--red); font-size:13px; font-weight:500; text-decoration:none; transition:background .15s; }
+    .btn-logout:hover { background:rgba(248,81,73,.2); }
+    .btn-logout svg { width:16px; height:16px; fill:currentColor; }
+
+    /* ── Main ─────────────────────────────────────────────────── */
+    .main { margin-left:240px; padding:28px 32px; min-height:100vh; }
+    .ph { display:flex; align-items:center; gap:14px; margin-bottom:24px; flex-wrap:wrap; }
+    .back-link { display:flex; align-items:center; gap:6px; color:var(--muted); text-decoration:none; font-size:13px; transition:color .15s; }
+    .back-link:hover { color:var(--accent); }
+    .back-link svg { width:16px; height:16px; fill:currentColor; }
+    .ph h1 { font-size:22px; font-weight:800; }
+
+    /* ── Badges ───────────────────────────────────────────────── */
+    .badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:.5px; }
+    .b-draft       { background:rgba(230,237,243,.07); color:var(--muted); }
+    .b-sent        { background:rgba(210,153,34,.15);  color:var(--yellow); }
+    .b-signed_card { background:rgba(79,172,254,.15);  color:var(--accent); }
+    .b-signed_sms  { background:rgba(63,185,80,.15);   color:var(--green); }
+    .b-accepted    { background:rgba(63,185,80,.15);   color:var(--green); }
+    .b-rejected    { background:rgba(248,81,73,.15);   color:var(--red); }
+
+    /* ── Layout ───────────────────────────────────────────────── */
+    .layout { display:grid; grid-template-columns:1fr 400px; gap:20px; align-items:start; }
+    @media(max-width:1100px) { .layout { grid-template-columns:1fr; } }
+
+    /* ── Card ─────────────────────────────────────────────────── */
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; }
+    .card-hd { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-bottom:16px; }
+    .meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 20px; margin-bottom:20px; }
+    .meta-item label { display:block; font-size:11px; color:var(--muted); margin-bottom:3px; text-transform:uppercase; letter-spacing:.5px; }
+    .meta-item span  { font-size:14px; font-weight:600; }
+    .contract-text { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:18px; font-size:13px; line-height:1.8; white-space:pre-wrap; color:var(--text); max-height:420px; overflow-y:auto; }
+
+    /* ── Right column ─────────────────────────────────────────── */
+    .right-col { display:flex; flex-direction:column; gap:16px; }
+
+    /* ── Already signed ───────────────────────────────────────── */
+    .signed-card { background:rgba(63,185,80,.06); border:1px solid rgba(63,185,80,.2); border-radius:14px; padding:22px; text-align:center; }
+    .signed-card .s-icon  { font-size:40px; margin-bottom:10px; }
+    .signed-card .s-title { font-size:17px; font-weight:800; color:var(--green); }
+    .signed-card .s-date  { font-size:12px; color:var(--muted); margin-top:5px; }
+    .signed-card .s-meth  { margin-top:10px; display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:4px 12px; border-radius:20px; }
+    .sm-card { background:rgba(79,172,254,.12); color:var(--accent); }
+    .sm-sms  { background:rgba(63,185,80,.12);  color:var(--green); }
+
+    /* ── EDS panel ────────────────────────────────────────────── */
+    .eds-panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; }
+    .eds-hd { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .eds-hd svg { width:20px; height:20px; fill:var(--accent); flex-shrink:0; }
+    .eds-hd h3 { font-size:15px; font-weight:800; }
+    .eds-sub { font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:18px; }
+
+    /* Step guide */
+    .steps { display:flex; gap:8px; margin-bottom:20px; }
+    .step { flex:1; display:flex; flex-direction:column; align-items:center; gap:10px; position:relative; }
+    .step:not(:last-child)::after { content:''; position:absolute; top:16px; left:calc(50% + 12px); right:calc(-50% + 12px); height:2px; background:var(--border2); z-index:0; }
+    .step.done:not(:last-child)::after { background:var(--accent); }
+    .step-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; border:2px solid var(--border2); background:var(--surface2); color:var(--muted); z-index:1; transition:all .3s; }
+    .step.active .step-dot { border-color:var(--accent); background:rgba(79,172,254,.15); color:var(--accent); }
+    .step.done   .step-dot { border-color:var(--accent); background:var(--accent); color:#0e1117; }
+    .step.error  .step-dot { border-color:var(--red);    background:rgba(248,81,73,.15); color:var(--red); }
+    .step-lbl { font-size:10px; color:var(--muted); text-align:center; font-weight:600; text-transform:uppercase; letter-spacing:.4px; transition:color .3s; }
+    .step.active .step-lbl { color:var(--accent); }
+    .step.done   .step-lbl { color:var(--green); }
+    .step.error  .step-lbl { color:var(--red); }
+
+    /* Status box */
+    .status-box { display:none; align-items:center; gap:10px; padding:12px 14px; border-radius:10px; font-size:13px; font-weight:600; margin-bottom:14px; }
+    .status-box.show { display:flex; }
+    .sb-connecting { background:rgba(210,153,34,.1);   border:1px solid rgba(210,153,34,.25); color:var(--yellow); }
+    .sb-waiting    { background:rgba(79,172,254,.1);   border:1px solid rgba(79,172,254,.25); color:var(--accent); }
+    .sb-signing    { background:rgba(163,113,247,.1);  border:1px solid rgba(163,113,247,.25); color:var(--purple); }
+    .sb-sending    { background:rgba(79,172,254,.1);   border:1px solid rgba(79,172,254,.25); color:var(--accent); }
+    .sb-success    { background:rgba(63,185,80,.1);    border:1px solid rgba(63,185,80,.25);  color:var(--green); }
+    .sb-error      { background:rgba(248,81,73,.1);    border:1px solid rgba(248,81,73,.25);  color:var(--red); }
+    .spinner { width:16px; height:16px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Timer bar */
+    .timer-wrap { display:none; margin-bottom:14px; }
+    .timer-wrap.show { display:block; }
+    .timer-top { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:5px; }
+    .timer-track { height:4px; background:var(--border2); border-radius:2px; overflow:hidden; }
+    .timer-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:2px; transition:width 1s linear; }
+
+    /* Buttons */
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; transition:all .15s; border:none; width:100%; }
+    .btn svg { width:17px; height:17px; fill:currentColor; flex-shrink:0; }
+    .btn:disabled { opacity:.4; cursor:not-allowed; transform:none !important; box-shadow:none !important; }
+
+    .btn-card { background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%); color:#0e1117; }
+    .btn-card:hover:not(:disabled) { opacity:.9; transform:translateY(-1px); box-shadow:0 8px 24px rgba(79,172,254,.35); }
+
+    .btn-sms  { background:rgba(63,185,80,.1); border:1px solid rgba(63,185,80,.25); color:var(--green); }
+    .btn-sms:hover:not(:disabled) { background:rgba(63,185,80,.2); }
+
+    .divider { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:11px; margin:4px 0; }
+    .divider::before,.divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    /* ── Signature history ────────────────────────────────────── */
+    .sig-list { display:flex; flex-direction:column; gap:8px; }
+    .sig-item { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--surface2); border-radius:10px; }
+    .sig-icon { font-size:18px; flex-shrink:0; }
+    .sig-info { flex:1; min-width:0; }
+    .sig-method { font-size:12px; font-weight:700; }
+    .sig-meta   { font-size:11px; color:var(--muted); margin-top:1px; }
+    .empty-sigs { font-size:13px; color:var(--muted); padding:10px 0; text-align:center; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-ico"><svg viewBox="0 0 24 24"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2v14a6 6 0 0 0 6 6 6 6 0 0 0 6-6V2l-1.5 1.5z"/></svg></div>
+    <div><div class="sb-name">Ski Rent</div><div class="sb-sub">CRM система</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">Основное</div>
+    <a href="{% url 'dashboard' %}"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>Дашборд</a>
+    {% if is_manager %}
+      <div class="nav-sec">Операции</div>
+      <a href="{% url 'clients' %}"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Клиенты</a>
+      <a href="{% url 'equipment' %}"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg>Снаряжение</a>
+      <a href="{% url 'rentals' %}" class="active"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>Аренды</a>
+    {% endif %}
+    <a href="{% url 'payments' %}"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>Платежи</a>
+    {% if is_admin %}<div class="nav-sec">Управление</div><a href="{% url 'users' %}"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>Пользователи</a>{% endif %}
+  </nav>
+  <div class="sb-foot">
+    <div class="u-info">
+      <div class="u-ava">{{ user.username|first|upper }}</div>
+      <div>
+        <div class="u-name">{{ user.get_full_name|default:user.username }}</div>
+        <span class="u-role {% if role == 'admin' %}role-admin{% elif role == 'manager' %}role-manager{% else %}role-cashier{% endif %}">{{ role }}</span>
+      </div>
+    </div>
+    <a href="/logout/" class="btn-logout"><svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>Выйти</a>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+  <!-- Page header -->
+  <div class="ph">
+    <a href="{% url 'rentals' %}" class="back-link">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      Назад к арендам
+    </a>
+    <h1>Договор #{{ contract.id }}</h1>
+    <span class="badge b-{{ contract.status }}">{{ contract.get_status_display }}</span>
+  </div>
+
+  <div class="layout">
+
+    <!-- ── Левая колонка: текст договора ── -->
+    <div>
+      <div class="card">
+        <div class="card-hd">Реквизиты договора</div>
+        <div class="meta-grid">
+          <div class="meta-item"><label>Клиент</label><span>{{ client.full_name }}</span></div>
+          <div class="meta-item"><label>Телефон</label><span>{{ client.phone|default:"—" }}</span></div>
+          <div class="meta-item"><label>Номер аренды</label><span>{{ rental.contract_number }}</span></div>
+          <div class="meta-item"><label>Период</label><span>{{ rental.start_date|default:"—" }} — {{ rental.end_date|default:"—" }}</span></div>
+          <div class="meta-item"><label>Дней</label><span>{{ rental.rental_days|default:"—" }}</span></div>
+          <div class="meta-item"><label>Сумма</label><span>{{ rental.total_price|default:"0" }} ₸</span></div>
+        </div>
+
+        <div class="card-hd">Текст договора</div>
+        <div class="contract-text">{{ contract.text }}</div>
+      </div>
+
+      <!-- История подписей -->
+      {% if signatures %}
+      <div class="card" style="margin-top:16px;">
+        <div class="card-hd">История подписей</div>
+        <div class="sig-list">
+          {% for s in signatures %}
+          <div class="sig-item">
+            <div class="sig-icon">{% if s.method == 'card' %}🔐{% else %}📱{% endif %}</div>
+            <div class="sig-info">
+              <div class="sig-method">{{ s.get_method_display }}</div>
+              <div class="sig-meta">{{ s.signed_at|date:"d.m.Y H:i" }}{% if s.operator %} · {{ s.operator.get_full_name|default:s.operator.username }}{% endif %}</div>
+            </div>
+            <span class="badge {% if s.method == 'card' %}b-signed_card{% else %}b-signed_sms{% endif %}">✓</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Правая колонка: подписание ── -->
+    <div class="right-col">
+
+      {% if contract.is_signed %}
+      <!-- УЖЕ ПОДПИСАН -->
+      <div class="signed-card">
+        <div class="s-icon">✅</div>
+        <div class="s-title">Договор подписан</div>
+        {% if contract.accepted_at %}<div class="s-date">{{ contract.accepted_at|date:"d.m.Y в H:i" }}</div>{% endif %}
+        <div class="s-meth {% if contract.status == 'signed_card' %}sm-card{% else %}sm-sms{% endif %}">
+          {% if contract.status == 'signed_card' %}🔐 ЭЦП через карт-ридер{% else %}📱 SMS{% endif %}
+        </div>
+      </div>
+
+      {% else %}
+      <!-- ── ЭЦП через карт-ридер ── -->
+      <div class="eds-panel">
+        <div class="eds-hd">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          <h3>Подписать через карт-ридер</h3>
+        </div>
+        <div class="eds-sub">
+          Вставьте удостоверение личности в кард-ридер. NCALayer запросит PIN‑код и подпишет договор автоматически.
+        </div>
+
+        <!-- Шаги -->
+        <div class="steps" id="steps">
+          <div class="step" id="step-1">
+            <div class="step-dot">1</div>
+            <div class="step-lbl">Вставьте&nbsp;карту</div>
+          </div>
+          <div class="step" id="step-2">
+            <div class="step-dot">2</div>
+            <div class="step-lbl">Подключение</div>
+          </div>
+          <div class="step" id="step-3">
+            <div class="step-dot">3</div>
+            <div class="step-lbl">Введите&nbsp;PIN</div>
+          </div>
+          <div class="step" id="step-4">
+            <div class="step-dot">4</div>
+            <div class="step-lbl">Готово</div>
+          </div>
+        </div>
+
+        <!-- Статус -->
+        <div class="status-box" id="status-box">
+          <span class="spinner" id="status-spin" style="display:none"></span>
+          <span id="status-text"></span>
+        </div>
+
+        <!-- Таймер -->
+        <div class="timer-wrap" id="timer-wrap">
+          <div class="timer-top"><span>Ожидание PIN...</span><span id="timer-count">30 с</span></div>
+          <div class="timer-track"><div class="timer-fill" id="timer-fill"></div></div>
+        </div>
+
+        <button class="btn btn-card" id="btn-eds" onclick="quickSign()">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          Подписать через карт-ридер (ЭЦП)
+        </button>
+      </div>
+
+      <div class="divider">или</div>
+
+      <!-- ── SMS ── -->
+      <div class="eds-panel">
+        <div class="eds-hd">
+          <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/></svg>
+          <h3>Подписать через SMS</h3>
+        </div>
+        <div class="eds-sub">Клиент получит SMS-код и подтвердит согласие по телефону.</div>
+        <div class="status-box" id="sms-status-box">
+          <span id="sms-status-text"></span>
+        </div>
+        <button class="btn btn-sms" id="btn-sms" onclick="signViaSms()">
+          <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          Подписать через SMS
+        </button>
+      </div>
+      {% endif %}
+
+    </div><!-- /right-col -->
+  </div><!-- /layout -->
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════
+  Данные для JS (скрытый блок)
+════════════════════════════════════════════════════════════ -->
+<div id="__sign_meta"
+     data-contract-id="{{ contract.id }}"
+     data-client-id="{{ client.id }}"
+     data-rental-id="{{ rental.id }}"
+     style="display:none"></div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   Конфигурация
+───────────────────────────────────────────────────────────── */
+const NCA_WS      = 'wss://127.0.0.1:13579/';
+const BACKEND_URL = '/api/sign/card/';          // + contractId + '/'
+const TIMEOUT_SEC = 30;
+
+/* ─────────────────────────────────────────────────────────────
+   Читаем мета-данные
+───────────────────────────────────────────────────────────── */
+const _meta      = document.getElementById('__sign_meta');
+const CONTRACT_ID = _meta.dataset.contractId;
+const CLIENT_ID   = _meta.dataset.clientId;
+const RENTAL_ID   = _meta.dataset.rentalId;
+
+/* ─────────────────────────────────────────────────────────────
+   Управление шагами
+───────────────────────────────────────────────────────────── */
+function resetSteps() {
+  [1,2,3,4].forEach(n => {
+    const el = document.getElementById('step-' + n);
+    el.className = 'step';
+    el.querySelector('.step-dot').textContent = n;
+  });
+}
+
+function setStep(num, state) {
+  // state: 'active' | 'done' | 'error'
+  const el  = document.getElementById('step-' + num);
+  const dot = el.querySelector('.step-dot');
+  el.className = 'step ' + state;
+  if (state === 'done')  dot.innerHTML = '✓';
+  if (state === 'error') dot.innerHTML = '✕';
+  if (state === 'active') dot.textContent = num;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Управление статус-боксом
+───────────────────────────────────────────────────────────── */
+function showStatus(type, text, spin) {
+  const box  = document.getElementById('status-box');
+  const spi  = document.getElementById('status-spin');
+  const txt  = document.getElementById('status-text');
+  box.className = 'status-box show sb-' + type;
+  txt.textContent = text;
+  spi.style.display = spin ? 'block' : 'none';
+}
+
+function hideStatus() {
+  document.getElementById('status-box').className = 'status-box';
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Таймер
+───────────────────────────────────────────────────────────── */
+let _timerInterval = null;
+let _timerTimeout  = null;
+
+function startTimer(onExpire) {
+  const wrap  = document.getElementById('timer-wrap');
+  const fill  = document.getElementById('timer-fill');
+  const count = document.getElementById('timer-count');
+  let sec = TIMEOUT_SEC;
+
+  wrap.classList.add('show');
+  fill.style.transition = 'none';
+  fill.style.width = '100%';
+
+  count.textContent = sec + ' с';
+
+  _timerInterval = setInterval(() => {
+    sec--;
+    count.textContent = sec + ' с';
+    fill.style.transition = 'width 1s linear';
+    fill.style.width = (sec / TIMEOUT_SEC * 100) + '%';
+    if (sec <= 0) stopTimer();
+  }, 1000);
+
+  _timerTimeout = setTimeout(onExpire, TIMEOUT_SEC * 1000);
+}
+
+function stopTimer() {
+  clearInterval(_timerInterval);
+  clearTimeout(_timerTimeout);
+  document.getElementById('timer-wrap').classList.remove('show');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Блокировка кнопок
+───────────────────────────────────────────────────────────── */
+function lockUI()   { document.getElementById('btn-eds').disabled = true;  document.getElementById('btn-sms').disabled = true; }
+function unlockUI() { document.getElementById('btn-eds').disabled = false; document.getElementById('btn-sms').disabled = false; }
+
+/* ─────────────────────────────────────────────────────────────
+   Вспомогательная: читаем CSRF из cookie
+───────────────────────────────────────────────────────────── */
+function getCsrf() {
+  const match = document.cookie.match(/csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+/* ─────────────────────────────────────────────────────────────
+   quickSign() — главная функция подписания через карт-ридер
+───────────────────────────────────────────────────────────── */
+function quickSign() {
+  lockUI();
+  resetSteps();
+  hideStatus();
+
+  /* XML, который будем подписывать */
+  const signDate = new Date().toISOString();
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<ContractSignature xmlns="http://skirent.kz/sign/v1">',
+    '  <ContractId>' + CONTRACT_ID + '</ContractId>',
+    '  <ClientId>'   + CLIENT_ID   + '</ClientId>',
+    '  <RentalId>'   + RENTAL_ID   + '</RentalId>',
+    '  <SignDate>'   + signDate    + '</SignDate>',
+    '  <System>SkiRentCRM</System>',
+    '</ContractSignature>',
+  ].join('\n');
+
+  /* ── ШАГ 1: активируем «Вставьте карту» (визуально) ── */
+  setStep(1, 'active');
+
+  /* ── ШАГ 2: подключение к NCALayer ── */
+  setStep(2, 'active');
+  showStatus('connecting', 'Подключение к NCALayer...', true);
+
+  let ws;
+  try {
+    ws = new WebSocket(NCA_WS);
+  } catch (e) {
+    onError('Не удалось открыть соединение с NCALayer.', 2);
+    return;
+  }
+
+  /* ── Успешное подключение ── */
+  ws.onopen = function () {
+    setStep(1, 'done');
+    setStep(2, 'done');
+    setStep(3, 'active');
+    showStatus('waiting', 'Вставьте удостоверение и введите PIN-код...', true);
+
+    /* Отправляем запрос на подписание */
+    ws.send(JSON.stringify({
+      module: 'kz.gov.pki.knca.commonUtils',
+      method: 'signXml',
+      args:   ['PKCS12', 'SIGNATURE', xml, '', ''],
+    }));
+
+    /* Запускаем таймаут */
+    startTimer(function () {
+      if (ws.readyState === WebSocket.OPEN) ws.close();
+      onError('Истекло время ожидания (' + TIMEOUT_SEC + ' сек). Попробуйте снова.', 3);
+    });
+  };
+
+  /* ── Ответ от NCALayer ── */
+  ws.onmessage = function (evt) {
+    stopTimer();
+
+    let resp;
+    try { resp = JSON.parse(evt.data); }
+    catch (e) { ws.close(); onError('Некорректный ответ от NCALayer.', 3); return; }
+
+    if (resp.status === 'OK' && resp.responseObject) {
+      ws.close();
+      setStep(3, 'done');
+      setStep(4, 'active');
+      showStatus('sending', 'Подпись получена. Сохраняем...', true);
+      sendToBackend(resp.responseObject);
+
+    } else if (resp.status === 'NONE') {
+      /* Пользователь нажал «Отмена» в диалоге PIN */
+      ws.close();
+      onError('Подписание отменено пользователем.', 3);
+
+    } else {
+      ws.close();
+      const msg = resp.message || resp.errorCode || 'Неизвестная ошибка';
+      onError('NCALayer: ' + msg, 3);
+    }
+  };
+
+  /* ── Ошибка WebSocket ── */
+  ws.onerror = function () {
+    stopTimer();
+    onError(
+      'NCALayer не отвечает. Убедитесь, что приложение запущено: ' +
+      'https://pki.gov.kz → Скачать NCALayer',
+      2
+    );
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────
+   sendToBackend() — сохраняем подпись на сервере
+───────────────────────────────────────────────────────────── */
+function sendToBackend(signatureB64) {
+  fetch(BACKEND_URL + CONTRACT_ID + '/', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body:    JSON.stringify({ signature: signatureB64 }),
+  })
+  .then(function (r) {
+    return r.json().then(function (body) { return { ok: r.ok, body }; });
+  })
+  .then(function ({ ok, body }) {
+    if (ok && body.ok) {
+      onSuccess(body.signed_at);
+    } else {
+      onError(body.error || 'Ошибка сервера. Попробуйте снова.', 4);
+    }
+  })
+  .catch(function (e) {
+    onError('Сетевая ошибка: ' + e.message, 4);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   onSuccess / onError
+───────────────────────────────────────────────────────────── */
+function onSuccess(signedAt) {
+  setStep(4, 'done');
+  showStatus('success', '✅  Договор успешно подписан через карт-ридер!', false);
+  /* Перезагружаем страницу через 1.5 сек — покажет «Уже подписан» */
+  setTimeout(function () { location.reload(); }, 1500);
+}
+
+function onError(message, errorStep) {
+  stopTimer();
+  if (errorStep) setStep(errorStep, 'error');
+  showStatus('error', '❌  ' + message, false);
+  unlockUI();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   signViaSms() — SMS (через существующий AcceptContractView)
+───────────────────────────────────────────────────────────── */
+function signViaSms() {
+  const smsBox = document.getElementById('sms-status-box');
+  const smsTxt = document.getElementById('sms-status-text');
+
+  smsBox.className = 'status-box show sb-waiting';
+  smsTxt.textContent = 'Отправляем...';
+  lockUI();
+
+  fetch('/contract/accept/' + CONTRACT_ID + '/', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body:    JSON.stringify({ signature: 'sms_manual_' + Date.now() }),
+  })
+  .then(r => r.json())
+  .then(function (body) {
+    if (body.ok || body.status) {
+      smsBox.className = 'status-box show sb-success';
+      smsTxt.textContent = '✅  Договор подписан через SMS';
+      setTimeout(function () { location.reload(); }, 1200);
+    } else {
+      smsBox.className = 'status-box show sb-error';
+      smsTxt.textContent = '❌  ' + (body.error || 'Ошибка');
+      unlockUI();
+    }
+  })
+  .catch(function (e) {
+    smsBox.className = 'status-box show sb-error';
+    smsTxt.textContent = '❌  Сетевая ошибка: ' + e.message;
+    unlockUI();
+  });
+}
+</script>
+
+</body>
+</html>

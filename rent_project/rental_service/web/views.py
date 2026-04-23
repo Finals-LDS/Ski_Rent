@@ -11,7 +11,8 @@ from django.contrib.auth import get_user_model
 
 from clients.models import Client
 from equipment.models import Equipment, EquipmentType
-from rentals.models import Rental, RentalItem, Discount, PriceModifier
+from rentals.models import (Rental, RentalItem, Discount, PriceModifier, Contract)
+from rentals.services import generate_contract_text
 from payments.models import Payment
 
 
@@ -744,3 +745,61 @@ def users_page(request):
         "error": error,
     }
     return render(request, "users.html", context)
+
+
+@login_required(login_url='login')
+def contract_create_web(request, rental_id):
+    """
+    Создаёт договор для аренды (если ещё нет) и редиректит на страницу договора.
+    URL: /contracts/create/<rental_id>/
+    """
+    if request.user.role not in ('admin', 'manager'):
+        return redirect('dashboard')
+
+    rental = get_object_or_404(Rental.objects.select_related('client'), pk=rental_id)
+
+    if not rental.client:
+        messages.error(request, 'У аренды нет клиента — нельзя создать договор.')
+        return redirect('rentals')
+
+    # Если договор уже существует — сразу перейти к нему
+    try:
+        contract = rental.contract
+    except Exception:
+        contract = Contract.objects.create(
+            client=rental.client,
+            rental=rental,
+            text=generate_contract_text(rental.client, rental),
+            status='sent',
+        )
+
+    return redirect('contract_detail', contract_id=contract.id)
+
+
+@login_required(login_url='login')
+def contract_detail_page(request, contract_id):
+    """
+    Страница договора с подписанием через ЭЦП (карт-ридер) или SMS.
+    URL: /contracts/<contract_id>/
+    """
+    if request.user.role not in ('admin', 'manager'):
+        return redirect('dashboard')
+
+    contract = get_object_or_404(
+        Contract.objects.select_related('client', 'rental'),
+        pk=contract_id,
+    )
+    signatures = contract.signatures.select_related('operator').order_by('-signed_at')
+
+    context = {
+        'user':       request.user,
+        'role':       request.user.role,
+        'is_admin':   request.user.role == 'admin',
+        'is_manager': request.user.role in ('admin', 'manager'),
+        'is_cashier': request.user.role in ('admin', 'manager', 'cashier'),
+        'contract':   contract,
+        'rental':     contract.rental,
+        'client':     contract.client,
+        'signatures': signatures,
+    }
+    return render(request, 'contract_detail.html', context)    
