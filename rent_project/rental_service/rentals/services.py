@@ -1,16 +1,18 @@
-from django.db.models import Sum
-from django.utils import timezone
 from datetime import date
 
-from .models import Rental, RentalItem
+from django.db.models import Sum
+from django.utils import timezone
+
 from equipment.models import Equipment
 
+from .models import Rental, RentalItem, Contract
+
+
+RENTAL_ACTIVE = ("open", "booked", "rented")
 
 
 def get_dashboard_stats(date_from=None, date_to=None):
     rentals = Rental.objects.all()
-
-    #фильтр по датам
     if date_from:
         rentals = rentals.filter(start_date__gte=date_from)
     if date_to:
@@ -20,52 +22,56 @@ def get_dashboard_stats(date_from=None, date_to=None):
 
     return {
         "total_revenue": rentals.aggregate(Sum("total_price"))["total_price__sum"] or 0,
-        "active_rentals": rentals.filter(status='active').count(),
-        "completed_rentals": rentals.filter(status='completed').count(),
+        "active_rentals": rentals.filter(status__in=RENTAL_ACTIVE).count(),
+        "completed_rentals": rentals.filter(status="completed").count(),
         "overdue_rentals": rentals.filter(
-            end_date__it=today,
-            status='active'
-        ).count()
+            end_date__lt=today,
+            status__in=RENTAL_ACTIVE,
+        ).count(),
     }
 
+
 def get_inventory_stats():
-    equipment = Equipment.objects.all()
+    equipment = Equipment.objects.select_related("type")
     data = []
 
     for item in equipment:
         in_rent = RentalItem.objects.filter(
             equipment=item,
-            rental__status='active'
+            rental__status__in=RENTAL_ACTIVE,
         ).count()
 
-        data.append({
-            "name": item.name,
-            "total": 1,
-            "available": 1 - in_rent,
-            "in_rent": in_rent
-        })
+        data.append(
+            {
+                "name": item.name,
+                "total": 1,
+                "available": 1 - in_rent,
+                "in_rent": in_rent,
+            }
+        )
 
     return data
 
+
 def get_category_stats():
-    equipment = equipment.objects.select_related('type')
+    qs = Equipment.objects.select_related("type")
     result = {}
 
-    for item in equipment:
+    for item in qs:
         category = item.type.name
 
         if category not in result:
             result[category] = {
                 "total": 0,
                 "in_rent": 0,
-                "available": 0
+                "available": 0,
             }
 
         result[category]["total"] += 1
-        
+
         is_rented = RentalItem.objects.filter(
             equipment=item,
-            rental__status='active'
+            rental__status__in=RENTAL_ACTIVE,
         ).exists()
 
         if is_rented:
@@ -75,10 +81,10 @@ def get_category_stats():
 
     return result
 
+
 def get_top_clients():
     return (
-        Rental.objects
-        .values("client__full_name")
+        Rental.objects.values("client__full_name")
         .annotate(total_spent=Sum("total_price"))
         .order_by("-total_spent")[:5]
     )
@@ -102,9 +108,10 @@ def generate_contract_text(client, rental):
     [✓] Я принимаю условия
     """
 
+
 def can_start_rental(rental):
     try:
         contract = rental.contract
-        return contract.status == 'accepted'
-    except:
+        return contract.is_signed
+    except Contract.DoesNotExist:
         return False

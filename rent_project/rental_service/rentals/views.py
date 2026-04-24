@@ -1,12 +1,14 @@
+import re
 from django.db.models import Sum
 from django.shortcuts import render, redirect, get_object_or_404
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
 from equipment.models import Equipment, EquipmentType
 from rentals.models import Rental, Discount, PriceModifier, Payment
 from .serializers import RentalSerializer, PaymentSerializer
-from .models import Contract
+from .models import Contract, Signature
 from .services import (
     generate_contract_text,
     can_start_rental,
@@ -16,7 +18,20 @@ from .services import (
     get_top_clients
 )
 from django.utils import timezone
+from django.conf import settings
+from django.core.cache import cache
 from rest_framework.decorators import action
+import hashlib
+
+from .sms_contract import (
+    OTP_CACHE_KEY,
+    cooldown_remaining,
+    generate_otp,
+    send_contract_otp_sms,
+    set_cooldown,
+    store_otp,
+    verify_and_clear_otp,
+)
 
 
 ACTIVE_RENTAL_STATUSES = ("open", "booked", "rented")
@@ -160,58 +175,141 @@ class CreateContractView(APIView):
             "text": contract.text
         })
     
-class AcceptContractView(APIView):
+class ContractSmsSendView(APIView):
     def post(self, request, contract_id):
-        contract = Contract.objects.get(id=contract_id)
+        contract = get_object_or_404(
+            Contract.objects.select_related("client"),
+            id=contract_id,
+        )
+        if contract.is_signed:
+            return Response(
+                {
+                    "ok": False,
+                    "error": "Договор уже подписан",
+                    "current_status": contract.status,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        phone = (contract.client.phone or "").strip()
+        if not phone:
+            return Response(
+                {
+                    "ok": False,
+                    "error": "У клиента не указан телефон — сохраните номер в карточке клиента.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        wait = cooldown_remaining(contract_id)
+        if wait > 0:
+            return Response(
+                {
+                    "ok": False,
+                    "error": f"Повторная отправка возможна через {wait} с.",
+                    "retry_after": wait,
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
-        # проверка: нельзя принять дважды
-        if contract.status == 'accepted':
-            return Response({"error": "Уже принят"}, status=400)
-        
-        contract.status = 'accepted'
-        contract.accepted_at = timezone.now()
+        code = generate_otp()
+        store_otp(contract_id, code)
+        ok, reason = send_contract_otp_sms(phone, code)
+        if not ok:
+            cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
+            err = reason
+            if reason == "no_phone":
+                err = "Некорректный номер телефона."
+            elif reason == "twilio_not_configured":
+                err = (
+                    "SMS не настроены: задайте TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
+                    "TWILIO_FROM_NUMBER в .env или включите DEBUG / SMS_ALLOW_CONSOLE=true."
+                )
+            return Response({"ok": False, "error": err}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        # сюда можно будет потом подпись засунуть
-        contract.signature_data = request.data.get('signature')
+        set_cooldown(contract_id)
+        body = {"ok": True, "message": "Код отправлен на телефон клиента."}
+        if settings.DEBUG and reason == "console_log":
+            body["dev_otp"] = code
+            body["warning"] = "Только для разработки: код также в логе сервера."
+        return Response(body)
 
-        contract.save()
 
-        return Response({"status": "Договор принят"})
+class ContractSmsVerifyView(APIView):
+    def post(self, request, contract_id):
+        contract = get_object_or_404(Contract, id=contract_id)
+        if contract.is_signed:
+            return Response(
+                {
+                    "ok": False,
+                    "error": "Договор уже подписан",
+                    "current_status": contract.status,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        code = (request.data.get("code") or "").strip()
+        if len(code) != 6 or not code.isdigit():
+            return Response(
+                {"ok": False, "error": "Введите 6-значный код из SMS."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not verify_and_clear_otp(contract_id, code):
+            return Response(
+                {"ok": False, "error": "Неверный или просроченный код. Запросите новый."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_sig = "sms_otp_sha256:" + hashlib.sha256(code.encode()).hexdigest()[:48]
+        now = timezone.now()
+        Signature.objects.create(
+            contract=contract,
+            operator=request.user if request.user.is_authenticated else None,
+            method=Signature.METHOD_SMS,
+            raw_signature=raw_sig,
+        )
+        contract.status = "signed_sms"
+        contract.accepted_at = now
+        contract.signature_data = raw_sig
+        contract.save(update_fields=["status", "accepted_at", "signature_data"])
+
+        return Response(
+            {
+                "ok": True,
+                "status": "signed_sms",
+                "signed_at": now.isoformat(),
+                "contract_id": contract.id,
+            }
+        )
     
 class SignCardView(APIView):
-    """
-    POST /api/sign/card/<contract_id>/
-
-    Тело запроса (JSON):
-        { "signature": "<base64-XML из NCALayer>" }
-
-    Ответ при успехе:
-        { "ok": true, "status": "signed_card", "signed_at": "ISO datetime" }
-    """
-
     def post(self, request, contract_id):
         contract = get_object_or_404(
             Contract.objects.select_related('client', 'rental'),
             id=contract_id,
         )
 
-        # Нельзя подписать дважды
         if contract.is_signed:
             return Response(
                 {'ok': False, 'error': 'Договор уже подписан', 'current_status': contract.status},
-                status=http_status.HTTP_409_CONFLICT,
+                status=status.HTTP_409_CONFLICT,
             )
 
         raw_sig = (request.data.get('signature') or '').strip()
         if not raw_sig:
             return Response(
                 {'ok': False, 'error': 'Отсутствуют данные подписи (signature)'},
-                status=http_status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        sig_clean = re.sub(r"\s+", "", raw_sig)
+        if len(sig_clean) < 80 or not re.match(r"^[A-Za-z0-9+/=]+$", sig_clean):
+            return Response(
+                {
+                    "ok": False,
+                    "error": "Подпись отклонена: ожидается полноценный CMS (Base64) от NCALayer после ввода PIN.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         now = timezone.now()
 
-        # 1. Сохраняем подпись
         Signature.objects.create(
             contract=contract,
             operator=request.user if request.user.is_authenticated else None,

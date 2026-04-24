@@ -141,6 +141,11 @@
     .btn-sms  { background:rgba(63,185,80,.1); border:1px solid rgba(63,185,80,.25); color:var(--green); }
     .btn-sms:hover:not(:disabled) { background:rgba(63,185,80,.2); }
 
+    .sms-otp-row { display:none; flex-direction:column; gap:10px; margin-bottom:14px; }
+    .sms-otp-row.show { display:flex; }
+    .sms-otp-input { width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border2); background:var(--surface2); color:var(--text); font-size:18px; letter-spacing:0.35em; text-align:center; font-weight:700; }
+    .sms-otp-input::placeholder { color:var(--muted); letter-spacing:0.2em; }
+
     .divider { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:11px; margin:4px 0; }
     .divider::before,.divider::after { content:''; flex:1; height:1px; background:var(--border); }
 
@@ -156,7 +161,6 @@
 </head>
 <body>
 
-<!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
   <div class="sb-brand">
     <div class="sb-ico"><svg viewBox="0 0 24 24"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2v14a6 6 0 0 0 6 6 6 6 0 0 0 6-6V2l-1.5 1.5z"/></svg></div>
@@ -186,10 +190,8 @@
   </div>
 </aside>
 
-<!-- ═══ MAIN ═══ -->
 <main class="main">
 
-  <!-- Page header -->
   <div class="ph">
     <a href="{% url 'rentals' %}" class="back-link">
       <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
@@ -201,7 +203,6 @@
 
   <div class="layout">
 
-    <!-- ── Левая колонка: текст договора ── -->
     <div>
       <div class="card">
         <div class="card-hd">Реквизиты договора</div>
@@ -218,7 +219,6 @@
         <div class="contract-text">{{ contract.text }}</div>
       </div>
 
-      <!-- История подписей -->
       {% if signatures %}
       <div class="card" style="margin-top:16px;">
         <div class="card-hd">История подписей</div>
@@ -238,11 +238,9 @@
       {% endif %}
     </div>
 
-    <!-- ── Правая колонка: подписание ── -->
     <div class="right-col">
 
       {% if contract.is_signed %}
-      <!-- УЖЕ ПОДПИСАН -->
       <div class="signed-card">
         <div class="s-icon">✅</div>
         <div class="s-title">Договор подписан</div>
@@ -253,7 +251,6 @@
       </div>
 
       {% else %}
-      <!-- ── ЭЦП через карт-ридер ── -->
       <div class="eds-panel">
         <div class="eds-hd">
           <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
@@ -263,7 +260,6 @@
           Вставьте удостоверение личности в кард-ридер. NCALayer запросит PIN‑код и подпишет договор автоматически.
         </div>
 
-        <!-- Шаги -->
         <div class="steps" id="steps">
           <div class="step" id="step-1">
             <div class="step-dot">1</div>
@@ -283,15 +279,13 @@
           </div>
         </div>
 
-        <!-- Статус -->
         <div class="status-box" id="status-box">
           <span class="spinner" id="status-spin" style="display:none"></span>
           <span id="status-text"></span>
         </div>
 
-        <!-- Таймер -->
         <div class="timer-wrap" id="timer-wrap">
-          <div class="timer-top"><span>Ожидание PIN...</span><span id="timer-count">30 с</span></div>
+          <div class="timer-top"><span>Ожидание PIN...</span><span id="timer-count">120 с</span></div>
           <div class="timer-track"><div class="timer-fill" id="timer-fill"></div></div>
         </div>
 
@@ -303,30 +297,36 @@
 
       <div class="divider">или</div>
 
-      <!-- ── SMS ── -->
       <div class="eds-panel">
         <div class="eds-hd">
           <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/></svg>
           <h3>Подписать через SMS</h3>
         </div>
-        <div class="eds-sub">Клиент получит SMS-код и подтвердит согласие по телефону.</div>
+        <div class="eds-sub">
+          На номер клиента <strong>{{ client.phone|default:"не указан" }}</strong> уйдёт SMS с 6-значным кодом.
+          После получения введите код и нажмите «Подтвердить».
+        </div>
         <div class="status-box" id="sms-status-box">
           <span id="sms-status-text"></span>
         </div>
-        <button class="btn btn-sms" id="btn-sms" onclick="signViaSms()">
+        <div class="sms-otp-row" id="sms-otp-row">
+          <input type="text" id="sms-otp" class="sms-otp-input" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
+          <button type="button" class="btn btn-sms" id="btn-sms-verify" onclick="verifySmsCode()">
+            <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            Подтвердить код и подписать
+          </button>
+        </div>
+        <button type="button" class="btn btn-sms" id="btn-sms-send" onclick="sendSmsCode()">
           <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-          Подписать через SMS
+          Отправить SMS с кодом
         </button>
       </div>
       {% endif %}
 
-    </div><!-- /right-col -->
-  </div><!-- /layout -->
+    </div>
+  </div>
 </main>
 
-<!-- ═══════════════════════════════════════════════════════════
-  Данные для JS (скрытый блок)
-════════════════════════════════════════════════════════════ -->
 <div id="__sign_meta"
      data-contract-id="{{ contract.id }}"
      data-client-id="{{ client.id }}"
@@ -334,24 +334,18 @@
      style="display:none"></div>
 
 <script>
-/* ─────────────────────────────────────────────────────────────
-   Конфигурация
-───────────────────────────────────────────────────────────── */
 const NCA_WS      = 'wss://127.0.0.1:13579/';
-const BACKEND_URL = '/api/sign/card/';          // + contractId + '/'
-const TIMEOUT_SEC = 30;
+const BACKEND_URL = '/api/rentals/api/sign/card/';
+const TIMEOUT_SEC = 120;
 
-/* ─────────────────────────────────────────────────────────────
-   Читаем мета-данные
-───────────────────────────────────────────────────────────── */
 const _meta      = document.getElementById('__sign_meta');
 const CONTRACT_ID = _meta.dataset.contractId;
 const CLIENT_ID   = _meta.dataset.clientId;
 const RENTAL_ID   = _meta.dataset.rentalId;
 
-/* ─────────────────────────────────────────────────────────────
-   Управление шагами
-───────────────────────────────────────────────────────────── */
+function smsSendUrl()   { return '/api/rentals/contract/' + CONTRACT_ID + '/sms/send/'; }
+function smsVerifyUrl() { return '/api/rentals/contract/' + CONTRACT_ID + '/sms/verify/'; }
+
 function resetSteps() {
   [1,2,3,4].forEach(n => {
     const el = document.getElementById('step-' + n);
@@ -361,7 +355,6 @@ function resetSteps() {
 }
 
 function setStep(num, state) {
-  // state: 'active' | 'done' | 'error'
   const el  = document.getElementById('step-' + num);
   const dot = el.querySelector('.step-dot');
   el.className = 'step ' + state;
@@ -370,9 +363,6 @@ function setStep(num, state) {
   if (state === 'active') dot.textContent = num;
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Управление статус-боксом
-───────────────────────────────────────────────────────────── */
 function showStatus(type, text, spin) {
   const box  = document.getElementById('status-box');
   const spi  = document.getElementById('status-spin');
@@ -386,9 +376,6 @@ function hideStatus() {
   document.getElementById('status-box').className = 'status-box';
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Таймер
-───────────────────────────────────────────────────────────── */
 let _timerInterval = null;
 let _timerTimeout  = null;
 
@@ -421,31 +408,81 @@ function stopTimer() {
   document.getElementById('timer-wrap').classList.remove('show');
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Блокировка кнопок
-───────────────────────────────────────────────────────────── */
-function lockUI()   { document.getElementById('btn-eds').disabled = true;  document.getElementById('btn-sms').disabled = true; }
-function unlockUI() { document.getElementById('btn-eds').disabled = false; document.getElementById('btn-sms').disabled = false; }
+function lockUI() {
+  document.getElementById('btn-eds').disabled = true;
+  document.getElementById('btn-sms-send').disabled = true;
+  document.getElementById('btn-sms-verify').disabled = true;
+  document.getElementById('sms-otp').disabled = true;
+}
+function unlockUI() {
+  document.getElementById('btn-eds').disabled = false;
+  document.getElementById('btn-sms-send').disabled = false;
+  document.getElementById('btn-sms-verify').disabled = false;
+  document.getElementById('sms-otp').disabled = false;
+}
 
-/* ─────────────────────────────────────────────────────────────
-   Вспомогательная: читаем CSRF из cookie
-───────────────────────────────────────────────────────────── */
 function getCsrf() {
   const match = document.cookie.match(/csrftoken=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : '';
 }
 
-/* ─────────────────────────────────────────────────────────────
-   quickSign() — главная функция подписания через карт-ридер
-───────────────────────────────────────────────────────────── */
-function quickSign() {
-  lockUI();
-  resetSteps();
-  hideStatus();
+function parseNcaLayerResponse(resp) {
+  if (resp.status === 'NONE') return { cancelled: true };
+  if (resp.status === false) {
+    const parts = [resp.code, resp.message, resp.details].filter(Boolean);
+    return { error: parts.join(' — ') || 'Ошибка NCALayer' };
+  }
+  if (resp.status === true && resp.body) {
+    if (!Object.prototype.hasOwnProperty.call(resp.body, 'result')) {
+      return { cancelled: true };
+    }
+    let data = resp.body.result;
+    if (Array.isArray(data) && data.length === 1) data = data[0];
+    return { ok: true, data: data };
+  }
+  if (resp.status === 'OK' && resp.responseObject != null) {
+    return { ok: true, data: resp.responseObject };
+  }
+  if (String(resp.code) === '200') {
+    return { ok: true, data: resp.responseObject };
+  }
+  return { error: resp.message || resp.errorCode || 'Неизвестный ответ NCALayer' };
+}
 
-  /* XML, который будем подписывать */
+function normalizeNcaSignature(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return '';
+  if (typeof value === 'object') {
+    if (typeof value.result === 'string') return value.result;
+    if (typeof value.signature === 'string') return value.signature;
+    return '';
+  }
+  return String(value);
+}
+
+function isNcaStoragePayload(data) {
+  if (data == null) return false;
+  var known = ['PKCS12', 'JKS', 'AKKaztokenStore', 'AKKZIDCardStore', 'AKEToken72KStore', 'AKEToken5110Store', 'AKJaCartaStore', 'AKAKEYStore'];
+  if (Array.isArray(data)) {
+    return data.every(function (x) { return typeof x === 'string' && x.length < 64; });
+  }
+  if (typeof data === 'string') {
+    return known.indexOf(data) !== -1 || data.length < 48;
+  }
+  return false;
+}
+
+function isLikelyCmsBase64(s) {
+  if (typeof s !== 'string') return false;
+  var t = s.replace(/\s+/g, '');
+  if (t.length < 80) return false;
+  return /^[A-Za-z0-9+/=]+$/.test(t);
+}
+
+function buildContractSignPayloadXml() {
   const signDate = new Date().toISOString();
-  const xml = [
+  return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<ContractSignature xmlns="http://skirent.kz/sign/v1">',
     '  <ContractId>' + CONTRACT_ID + '</ContractId>',
@@ -455,13 +492,23 @@ function quickSign() {
     '  <System>SkiRentCRM</System>',
     '</ContractSignature>',
   ].join('\n');
+}
 
-  /* ── ШАГ 1: активируем «Вставьте карту» (визуально) ── */
+function pickStorageFromTokens(data) {
+  if (Array.isArray(data) && data.length > 0) return data[0];
+  if (typeof data === 'string' && data) return data;
+  return 'PKCS12';
+}
+
+function quickSign() {
+  lockUI();
+  resetSteps();
+  hideStatus();
   setStep(1, 'active');
-
-  /* ── ШАГ 2: подключение к NCALayer ── */
   setStep(2, 'active');
   showStatus('connecting', 'Подключение к NCALayer...', true);
+
+  const xml = buildContractSignPayloadXml();
 
   let ws;
   try {
@@ -471,71 +518,96 @@ function quickSign() {
     return;
   }
 
-  /* ── Успешное подключение ── */
-  ws.onopen = function () {
-    setStep(1, 'done');
-    setStep(2, 'done');
-    setStep(3, 'active');
-    showStatus('waiting', 'Вставьте удостоверение и введите PIN-код...', true);
+  let phase = 1;
 
-    /* Отправляем запрос на подписание */
+  ws.onopen = function () {
     ws.send(JSON.stringify({
       module: 'kz.gov.pki.knca.commonUtils',
-      method: 'signXml',
-      args:   ['PKCS12', 'SIGNATURE', xml, '', ''],
+      method: 'getActiveTokens',
     }));
-
-    /* Запускаем таймаут */
-    startTimer(function () {
-      if (ws.readyState === WebSocket.OPEN) ws.close();
-      onError('Истекло время ожидания (' + TIMEOUT_SEC + ' сек). Попробуйте снова.', 3);
-    });
   };
 
-  /* ── Ответ от NCALayer ── */
   ws.onmessage = function (evt) {
-    stopTimer();
-
     let resp;
     try { resp = JSON.parse(evt.data); }
     catch (e) { ws.close(); onError('Некорректный ответ от NCALayer.', 3); return; }
 
-    if (resp.status === 'OK' && resp.responseObject) {
+    if (phase === 1) {
+      if (resp.result && resp.result.version) {
+        ws.send(JSON.stringify({
+          module: 'kz.gov.pki.knca.commonUtils',
+          method: 'getActiveTokens',
+        }));
+        return;
+      }
+      const p1 = parseNcaLayerResponse(resp);
+      if (p1.cancelled) { ws.close(); onError('Подписание отменено.', 3); return; }
+      if (p1.error) { ws.close(); onError('NCALayer: ' + p1.error, 3); return; }
+
+      const storage = pickStorageFromTokens(p1.data);
+      phase = 2;
+      setStep(1, 'done');
+      setStep(2, 'done');
+      setStep(3, 'active');
+      showStatus('waiting', 'Вставьте носитель и введите PIN-код...', true);
+      ws.send(JSON.stringify({
+        module: 'kz.gov.pki.knca.commonUtils',
+        method: 'createCAdESFromBase64',
+        args: [storage, 'SIGNATURE', xml, false],
+      }));
+      startTimer(function () {
+        if (ws.readyState === WebSocket.OPEN) ws.close();
+        onError('Истекло время ожидания (' + TIMEOUT_SEC + ' сек). Попробуйте снова.', 3);
+      });
+      return;
+    }
+
+    if (phase === 2) {
+      if (resp.result && resp.result.version) {
+        return;
+      }
+      const p2 = parseNcaLayerResponse(resp);
+      if (p2.cancelled) {
+        stopTimer();
+        ws.close();
+        onError('Подписание отменено пользователем.', 3);
+        return;
+      }
+      if (p2.error) {
+        stopTimer();
+        ws.close();
+        onError('NCALayer: ' + p2.error, 3);
+        return;
+      }
+      if (isNcaStoragePayload(p2.data)) {
+        return;
+      }
+      const sigPayload = normalizeNcaSignature(p2.data);
+      if (!isLikelyCmsBase64(sigPayload)) {
+        return;
+      }
+      stopTimer();
       ws.close();
       setStep(3, 'done');
       setStep(4, 'active');
       showStatus('sending', 'Подпись получена. Сохраняем...', true);
-      sendToBackend(resp.responseObject);
-
-    } else if (resp.status === 'NONE') {
-      /* Пользователь нажал «Отмена» в диалоге PIN */
-      ws.close();
-      onError('Подписание отменено пользователем.', 3);
-
-    } else {
-      ws.close();
-      const msg = resp.message || resp.errorCode || 'Неизвестная ошибка';
-      onError('NCALayer: ' + msg, 3);
+      sendToBackend(sigPayload);
     }
   };
 
-  /* ── Ошибка WebSocket ── */
   ws.onerror = function () {
     stopTimer();
     onError(
-      'NCALayer не отвечает. Убедитесь, что приложение запущено: ' +
-      'https://pki.gov.kz → Скачать NCALayer',
+      'NCALayer не отвечает. Установите и запустите NCALayer: https://ncl.pki.gov.kz/',
       2
     );
   };
 }
 
-/* ─────────────────────────────────────────────────────────────
-   sendToBackend() — сохраняем подпись на сервере
-───────────────────────────────────────────────────────────── */
 function sendToBackend(signatureB64) {
   fetch(BACKEND_URL + CONTRACT_ID + '/', {
     method:  'POST',
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
     body:    JSON.stringify({ signature: signatureB64 }),
   })
@@ -554,13 +626,9 @@ function sendToBackend(signatureB64) {
   });
 }
 
-/* ─────────────────────────────────────────────────────────────
-   onSuccess / onError
-───────────────────────────────────────────────────────────── */
 function onSuccess(signedAt) {
   setStep(4, 'done');
   showStatus('success', '✅  Договор успешно подписан через карт-ридер!', false);
-  /* Перезагружаем страницу через 1.5 сек — покажет «Уже подписан» */
   setTimeout(function () { location.reload(); }, 1500);
 }
 
@@ -571,25 +639,67 @@ function onError(message, errorStep) {
   unlockUI();
 }
 
-/* ─────────────────────────────────────────────────────────────
-   signViaSms() — SMS (через существующий AcceptContractView)
-───────────────────────────────────────────────────────────── */
-function signViaSms() {
+function sendSmsCode() {
   const smsBox = document.getElementById('sms-status-box');
   const smsTxt = document.getElementById('sms-status-text');
+  const otpRow = document.getElementById('sms-otp-row');
 
   smsBox.className = 'status-box show sb-waiting';
-  smsTxt.textContent = 'Отправляем...';
+  smsTxt.textContent = 'Отправляем SMS...';
   lockUI();
 
-  fetch('/contract/accept/' + CONTRACT_ID + '/', {
+  fetch(smsSendUrl(), {
     method:  'POST',
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-    body:    JSON.stringify({ signature: 'sms_manual_' + Date.now() }),
+    body:    '{}',
   })
-  .then(r => r.json())
-  .then(function (body) {
-    if (body.ok || body.status) {
+  .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body }; }); })
+  .then(function ({ ok, body }) {
+    if (ok && body.ok) {
+      smsBox.className = 'status-box show sb-success';
+      smsTxt.textContent = 'Код отправлен. Введите 6 цифр из SMS.';
+      if (body.dev_otp) smsTxt.textContent += ' [DEBUG код: ' + body.dev_otp + ']';
+      otpRow.classList.add('show');
+      document.getElementById('sms-otp').value = '';
+      document.getElementById('sms-otp').focus();
+      unlockUI();
+      document.getElementById('btn-sms-send').disabled = false;
+    } else {
+      smsBox.className = 'status-box show sb-error';
+      smsTxt.textContent = '❌  ' + (body.error || 'Ошибка отправки');
+      unlockUI();
+    }
+  })
+  .catch(function (e) {
+    smsBox.className = 'status-box show sb-error';
+    smsTxt.textContent = '❌  Сеть: ' + e.message;
+    unlockUI();
+  });
+}
+
+function verifySmsCode() {
+  const smsBox = document.getElementById('sms-status-box');
+  const smsTxt = document.getElementById('sms-status-text');
+  const code = (document.getElementById('sms-otp').value || '').replace(/\D/g, '').slice(0, 6);
+  if (code.length !== 6) {
+    smsBox.className = 'status-box show sb-error';
+    smsTxt.textContent = '❌  Введите ровно 6 цифр кода из SMS.';
+    return;
+  }
+  smsBox.className = 'status-box show sb-waiting';
+  smsTxt.textContent = 'Проверяем код...';
+  lockUI();
+
+  fetch(smsVerifyUrl(), {
+    method:  'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+    body:    JSON.stringify({ code: code }),
+  })
+  .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body }; }); })
+  .then(function ({ ok, body }) {
+    if (ok && body.ok === true) {
       smsBox.className = 'status-box show sb-success';
       smsTxt.textContent = '✅  Договор подписан через SMS';
       setTimeout(function () { location.reload(); }, 1200);
@@ -601,7 +711,7 @@ function signViaSms() {
   })
   .catch(function (e) {
     smsBox.className = 'status-box show sb-error';
-    smsTxt.textContent = '❌  Сетевая ошибка: ' + e.message;
+    smsTxt.textContent = '❌  Сеть: ' + e.message;
     unlockUI();
   });
 }

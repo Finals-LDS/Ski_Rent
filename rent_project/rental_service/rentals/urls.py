@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .views import (
     RentalViewSet, PaymentViewSet, DashboardView,
-    CreateContractView, AcceptContractView, StartRentalView,
+    CreateContractView, ContractSmsSendView, ContractSmsVerifyView, StartRentalView,
     SignCardView,
     settings_view, create_draft, delete_rental, change_status,
 )
@@ -24,7 +24,8 @@ urlpatterns = [
 
     # Договоры
     path('contract/create/<int:rental_id>/',       CreateContractView.as_view(),  name='contract_create_api'),
-    path('contract/accept/<int:contract_id>/',     AcceptContractView.as_view(),  name='contract_accept'),
+    path('contract/<int:contract_id>/sms/send/',   ContractSmsSendView.as_view(),   name='contract_sms_send'),
+    path('contract/<int:contract_id>/sms/verify/', ContractSmsVerifyView.as_view(), name='contract_sms_verify'),
 
     # ★ Подписание через карт-ридер (NCALayer ЭЦП)
     path('api/sign/card/<int:contract_id>/',       SignCardView.as_view(),        name='sign_card'),

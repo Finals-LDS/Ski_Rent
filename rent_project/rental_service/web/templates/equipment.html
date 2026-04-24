@@ -220,6 +220,20 @@
           <div class="dropdown-clear" onclick="clearFilter('type', 'typeFilterBtn')">✕ Сбросить</div>
         </div>
       </div>
+
+      <div class="filter-dropdown">
+        <div class="filter-btn" id="sizeFilterBtn" onclick="toggleDropdown('sizeDropdown', this)">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h10v2H4v-2zm0 5h16v2H4v-2z"/></svg>
+          Размер
+          <svg class="chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="dropdown-panel" id="sizeDropdown" style="min-width:160px;">
+          <div class="dropdown-label">Градация (размер)</div>
+          <div id="sizeOptions"></div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-clear" onclick="clearFilter('size', 'sizeFilterBtn')">✕ Сбросить</div>
+        </div>
+      </div>
     </div>
 
     <div class="table-wrap">
@@ -232,6 +246,9 @@
             </th>
             <th>
               <button class="sort-btn" onclick="sortTable('type')">Тип <svg id="sort-type-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('size')">Размер <svg id="sort-size-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
             </th>
             <th>Статус</th>
             <th>
@@ -255,6 +272,8 @@
               data-name="{{ e.name|lower }}"
               data-type="{{ e.type.name|lower }}"
               data-type-display="{{ e.type.name }}"
+              data-size="{{ e.size|default:''|lower }}"
+              data-size-display="{{ e.size|default:'—' }}"
               data-status="{{ e.status }}"
               data-price="{{ e.price_per_day }}"
               data-qty="{{ e.quantity }}"
@@ -262,6 +281,7 @@
               data-avail="{{ e.quantity_available }}">
               <td>{{ e.name }}</td>
               <td>{{ e.type.name }}</td>
+              <td>{{ e.size|default:"—" }}</td>
               <td>
                 <form method="post" action="{% url 'equipment' %}" class="inline-form">
                   {% csrf_token %}
@@ -291,7 +311,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="8" class="muted">Снаряжения пока нет</td></tr>
+            <tr><td colspan="9" class="muted">Снаряжения пока нет</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -303,7 +323,7 @@
   </main>
 
   <script>
-    let activeFilters = { status: null, type: null };
+    let activeFilters = { status: null, type: null, size: null };
     let sortState = { col: null, dir: 1 };
 
     document.getElementById('equipSearch').addEventListener('input', applyAll);
@@ -320,6 +340,34 @@
         el.dataset.filter = 'type';
         el.dataset.value = t.toLowerCase();
         el.innerHTML = `<span class="opt-dot"></span> ${t}`;
+        el.onclick = () => selectFilter(el);
+        container.appendChild(el);
+      });
+    }
+
+    function buildSizeOptions() {
+      const rows = document.querySelectorAll('.equip-row');
+      const sizes = new Set();
+      rows.forEach(r => {
+        const d = (r.dataset.sizeDisplay || '').trim();
+        if (d && d !== '—') sizes.add(d);
+      });
+      const sorted = Array.from(sizes).sort(function (a, b) {
+        var na = parseFloat(String(a).replace(',', '.'));
+        var nb = parseFloat(String(b).replace(',', '.'));
+        if (!isNaN(na) && !isNaN(nb) && String(a).match(/^[0-9.,]+$/) && String(b).match(/^[0-9.,]+$/)) {
+          return na - nb;
+        }
+        return a.localeCompare(b, 'ru', { numeric: true });
+      });
+      const container = document.getElementById('sizeOptions');
+      container.innerHTML = '';
+      sorted.forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'dropdown-option';
+        el.dataset.filter = 'size';
+        el.dataset.value = s.toLowerCase();
+        el.innerHTML = `<span class="opt-dot"></span> ${s}`;
         el.onclick = () => selectFilter(el);
         container.appendChild(el);
       });
@@ -346,7 +394,7 @@
       document.querySelectorAll(`[data-filter="${filter}"]`).forEach(o => o.classList.remove('selected'));
       el.classList.add('selected');
       activeFilters[filter] = value;
-      const btnId = filter === 'status' ? 'statusFilterBtn' : 'typeFilterBtn';
+      const btnId = filter === 'status' ? 'statusFilterBtn' : (filter === 'type' ? 'typeFilterBtn' : 'sizeFilterBtn');
       document.getElementById(btnId).classList.add('active');
       applyAll();
     }
@@ -364,9 +412,10 @@
       let visible = 0;
       rows.forEach(row => {
         let show = true;
-        if (q && !row.dataset.name.includes(q) && !row.dataset.type.includes(q)) show = false;
+        if (q && !row.dataset.name.includes(q) && !row.dataset.type.includes(q) && !(row.dataset.size || '').includes(q)) show = false;
         if (activeFilters.status && row.dataset.status !== activeFilters.status) show = false;
         if (activeFilters.type && row.dataset.type !== activeFilters.type) show = false;
+        if (activeFilters.size && row.dataset.size !== activeFilters.size) show = false;
         row.style.display = show ? '' : 'none';
         if (show) visible++;
       });
@@ -377,7 +426,7 @@
     function sortTable(col) {
       if (sortState.col === col) sortState.dir *= -1;
       else { sortState.col = col; sortState.dir = 1; }
-      ['name','type','price','qty','rented','avail'].forEach(c => {
+      ['name','type','size','price','qty','rented','avail'].forEach(c => {
         const ico = document.getElementById(`sort-${c}-ico`);
         if (ico) ico.style.opacity = c === col ? '1' : '0.4';
       });
@@ -387,6 +436,16 @@
         let av, bv;
         if (col === 'name') { return a.dataset.name.localeCompare(b.dataset.name) * sortState.dir; }
         if (col === 'type') { return a.dataset.type.localeCompare(b.dataset.type) * sortState.dir; }
+        if (col === 'size') {
+          var sa = (a.dataset.sizeDisplay || '').trim();
+          var sb = (b.dataset.sizeDisplay || '').trim();
+          var na = parseFloat(String(sa).replace(',', '.'));
+          var nb = parseFloat(String(sb).replace(',', '.'));
+          if (!isNaN(na) && !isNaN(nb) && String(sa).match(/^[0-9.,]+$/) && String(sb).match(/^[0-9.,]+$/)) {
+            return (na - nb) * sortState.dir;
+          }
+          return sa.localeCompare(sb, 'ru', { numeric: true }) * sortState.dir;
+        }
         if (col === 'price') { av = parseFloat(a.dataset.price)||0; bv = parseFloat(b.dataset.price)||0; }
         if (col === 'qty') { av = parseInt(a.dataset.qty)||0; bv = parseInt(b.dataset.qty)||0; }
         if (col === 'rented') { av = parseInt(a.dataset.rented)||0; bv = parseInt(b.dataset.rented)||0; }
@@ -398,6 +457,7 @@
     }
 
     buildTypeOptions();
+    buildSizeOptions();
     applyAll();
   </script>
 </body>
