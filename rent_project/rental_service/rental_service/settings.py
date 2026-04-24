@@ -117,7 +117,9 @@ CACHES = {
     }
 }
 
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
-TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
-SMS_ALLOW_CONSOLE = os.getenv("SMS_ALLOW_CONSOLE", "").lower() in ("1", "true", "yes")
+SMSC_LOGIN = "mqwmee"
+SMSC_PASSWORD = "12345678"
+SMS_SENDER = "SkiRent"
+SMS_API_URL = "https://smsc.kz/sys/send.php"
+
+OTP_EXPIRE_SECONDS = 120

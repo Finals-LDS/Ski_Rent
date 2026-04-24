@@ -5,6 +5,18 @@ from clients.models import Client
 from django.conf import settings
 from equipment.models import Equipment
 import uuid
+from django.utils import timezone
+from datetime import timedelta
+
+class SmsOTP(models.Model):
+    contract_id = models.IntegerField()
+    phone = models.CharField(max_length=20)
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(seconds=120)
 
 
 class Rental(models.Model):

@@ -8,7 +8,7 @@ from rest_framework import status
 from equipment.models import Equipment, EquipmentType
 from rentals.models import Rental, Discount, PriceModifier, Payment
 from .serializers import RentalSerializer, PaymentSerializer
-from .models import Contract, Signature
+from .models import Contract, Signature, Rental
 from .services import (
     generate_contract_text,
     can_start_rental,
@@ -18,20 +18,124 @@ from .services import (
     get_top_clients
 )
 from django.utils import timezone
-from django.conf import settings
 from django.core.cache import cache
 from rest_framework.decorators import action
 import hashlib
 
-from .sms_contract import (
-    OTP_CACHE_KEY,
-    cooldown_remaining,
-    generate_otp,
-    send_contract_otp_sms,
-    set_cooldown,
-    store_otp,
-    verify_and_clear_otp,
-)
+import random
+from django.conf import settings
+from rest_framework.views import APIView
+from .utils import send_sms
+import hashlib
+
+OTP_CACHE_KEY = "sms_otp_{contract_id}"
+OTP_TTL = 120
+COOLDOWN_KEY = "sms_cooldown_{contract_id}"
+COOLDOWN_TTL = 30
+
+
+def generate_otp():
+    return str(random.randint(100000, 999999))
+
+
+def store_otp(contract_id, code):
+    cache.set(OTP_CACHE_KEY.format(contract_id=contract_id), code, OTP_TTL)
+
+
+def verify_and_clear_otp(contract_id, code):
+    key = OTP_CACHE_KEY.format(contract_id=contract_id)
+    stored = cache.get(key)
+    if stored and stored == code:
+        cache.delete(key)
+        return True
+    return False
+
+
+def set_cooldown(contract_id):
+    cache.set(COOLDOWN_KEY.format(contract_id=contract_id), True, COOLDOWN_TTL)
+
+
+def cooldown_remaining(contract_id):
+    return 30 if cache.get(COOLDOWN_KEY.format(contract_id=contract_id)) else 0
+
+
+class ContractSmsSendView(APIView):
+    def post(self, request, contract_id):
+        contract = get_object_or_404(
+            Contract.objects.select_related("client"),
+            id=contract_id,
+        )
+
+        if contract.is_signed:
+            return Response(
+                {"ok": False, "error": "Договор уже подписан"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        phone = contract.client.phone
+        if not phone:
+            return Response(
+                {"ok": False, "error": "Нет номера телефона"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if cooldown_remaining(contract_id):
+            return Response(
+                {"ok": False, "error": "Подождите перед повторной отправкой"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        code = generate_otp()
+        store_otp(contract_id, code)
+
+        ok, error = send_sms(phone, f"Код подтверждения: {code}")
+
+        if not ok:
+            return Response(
+                {"ok": False, "error": error or "Ошибка отправки SMS"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        set_cooldown(contract_id)
+
+        return Response({"ok": True})
+
+
+class ContractSmsVerifyView(APIView):
+    def post(self, request, contract_id):
+        contract = get_object_or_404(Contract, id=contract_id)
+
+        if contract.is_signed:
+            return Response(
+                {"ok": False, "error": "Договор уже подписан"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        code = (request.data.get("code") or "").strip()
+
+        if not verify_and_clear_otp(contract_id, code):
+            return Response(
+                {"ok": False, "error": "Неверный или просроченный код"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_sig = "sms_" + hashlib.sha256(code.encode()).hexdigest()
+
+        now = timezone.now()
+
+        Signature.objects.create(
+            contract=contract,
+            operator=request.user if request.user.is_authenticated else None,
+            method=Signature.METHOD_SMS,
+            raw_signature=raw_sig,
+        )
+
+        contract.status = "signed_sms"
+        contract.accepted_at = now
+        contract.signature_data = raw_sig
+        contract.save()
+
+        return Response({"ok": True})
 
 
 ACTIVE_RENTAL_STATUSES = ("open", "booked", "rented")
@@ -175,109 +279,6 @@ class CreateContractView(APIView):
             "text": contract.text
         })
     
-class ContractSmsSendView(APIView):
-    def post(self, request, contract_id):
-        contract = get_object_or_404(
-            Contract.objects.select_related("client"),
-            id=contract_id,
-        )
-        if contract.is_signed:
-            return Response(
-                {
-                    "ok": False,
-                    "error": "Договор уже подписан",
-                    "current_status": contract.status,
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-        phone = (contract.client.phone or "").strip()
-        if not phone:
-            return Response(
-                {
-                    "ok": False,
-                    "error": "У клиента не указан телефон — сохраните номер в карточке клиента.",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        wait = cooldown_remaining(contract_id)
-        if wait > 0:
-            return Response(
-                {
-                    "ok": False,
-                    "error": f"Повторная отправка возможна через {wait} с.",
-                    "retry_after": wait,
-                },
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
-
-        code = generate_otp()
-        store_otp(contract_id, code)
-        ok, reason = send_contract_otp_sms(phone, code)
-        if not ok:
-            cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
-            err = reason
-            if reason == "no_phone":
-                err = "Некорректный номер телефона."
-            elif reason == "twilio_not_configured":
-                err = (
-                    "SMS не настроены: задайте TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
-                    "TWILIO_FROM_NUMBER в .env или включите DEBUG / SMS_ALLOW_CONSOLE=true."
-                )
-            return Response({"ok": False, "error": err}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-        set_cooldown(contract_id)
-        body = {"ok": True, "message": "Код отправлен на телефон клиента."}
-        if settings.DEBUG and reason == "console_log":
-            body["dev_otp"] = code
-            body["warning"] = "Только для разработки: код также в логе сервера."
-        return Response(body)
-
-
-class ContractSmsVerifyView(APIView):
-    def post(self, request, contract_id):
-        contract = get_object_or_404(Contract, id=contract_id)
-        if contract.is_signed:
-            return Response(
-                {
-                    "ok": False,
-                    "error": "Договор уже подписан",
-                    "current_status": contract.status,
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-        code = (request.data.get("code") or "").strip()
-        if len(code) != 6 or not code.isdigit():
-            return Response(
-                {"ok": False, "error": "Введите 6-значный код из SMS."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if not verify_and_clear_otp(contract_id, code):
-            return Response(
-                {"ok": False, "error": "Неверный или просроченный код. Запросите новый."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        raw_sig = "sms_otp_sha256:" + hashlib.sha256(code.encode()).hexdigest()[:48]
-        now = timezone.now()
-        Signature.objects.create(
-            contract=contract,
-            operator=request.user if request.user.is_authenticated else None,
-            method=Signature.METHOD_SMS,
-            raw_signature=raw_sig,
-        )
-        contract.status = "signed_sms"
-        contract.accepted_at = now
-        contract.signature_data = raw_sig
-        contract.save(update_fields=["status", "accepted_at", "signature_data"])
-
-        return Response(
-            {
-                "ok": True,
-                "status": "signed_sms",
-                "signed_at": now.isoformat(),
-                "contract_id": contract.id,
-            }
-        )
     
 class SignCardView(APIView):
     def post(self, request, contract_id):

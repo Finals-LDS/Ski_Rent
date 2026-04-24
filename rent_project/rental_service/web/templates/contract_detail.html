@@ -408,6 +408,10 @@ function stopTimer() {
   document.getElementById('timer-wrap').classList.remove('show');
 }
 
+function toBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
 function lockUI() {
   document.getElementById('btn-eds').disabled = true;
   document.getElementById('btn-sms-send').disabled = true;
@@ -509,6 +513,7 @@ function quickSign() {
   showStatus('connecting', 'Подключение к NCALayer...', true);
 
   const xml = buildContractSignPayloadXml();
+  const xmlBase64 = toBase64(xml);
 
   let ws;
   try {
@@ -553,7 +558,7 @@ function quickSign() {
       ws.send(JSON.stringify({
         module: 'kz.gov.pki.knca.commonUtils',
         method: 'createCAdESFromBase64',
-        args: [storage, 'SIGNATURE', xml, false],
+        args: [storage, 'SIGNATURE', xmlBase64, false],
       }));
       startTimer(function () {
         if (ws.readyState === WebSocket.OPEN) ws.close();

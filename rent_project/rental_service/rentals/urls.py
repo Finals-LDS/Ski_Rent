@@ -4,16 +4,16 @@ from .views import (
     RentalViewSet, PaymentViewSet, DashboardView,
     CreateContractView, ContractSmsSendView, ContractSmsVerifyView, StartRentalView,
     SignCardView,
-    settings_view, create_draft, delete_rental, change_status,
+    settings_view, create_draft, delete_rental, change_status, ContractSmsSendView, ContractSmsVerifyView
 )
 from equipment.views import ClientViewSet, EquipmentViewSet, EquipmentTypeViewSet
 
 router = DefaultRouter()
-router.register(r'api/rentals', RentalViewSet)
-router.register(r'api/rentals', ClientViewSet)
-router.register(r'api/rentals', EquipmentViewSet)
-router.register(r'api/rentals', EquipmentTypeViewSet)
-router.register(r'api/rentals', PaymentViewSet)
+router.register(r'rentals', RentalViewSet)
+router.register(r'clients', ClientViewSet)
+router.register(r'equipment', EquipmentViewSet)
+router.register(r'equipment-types', EquipmentTypeViewSet)
+router.register(r'payments', PaymentViewSet)
 
 urlpatterns = [
     path('settings/',                              settings_view,            name='settings'),
@@ -22,10 +22,11 @@ urlpatterns = [
     path('rentals/<int:pk>/status/',               change_status,            name='change_status'),
     path('api/dashboard/',                         DashboardView.as_view(),  name='api_dashboard'),
 
+    path('contract/<int:contract_id>/sms/send/', ContractSmsSendView.as_view()),
+    path('contract/<int:contract_id>/sms/verify/', ContractSmsVerifyView.as_view()),
+
     # Договоры
     path('contract/create/<int:rental_id>/',       CreateContractView.as_view(),  name='contract_create_api'),
-    path('contract/<int:contract_id>/sms/send/',   ContractSmsSendView.as_view(),   name='contract_sms_send'),
-    path('contract/<int:contract_id>/sms/verify/', ContractSmsVerifyView.as_view(), name='contract_sms_verify'),
 
     # ★ Подписание через карт-ридер (NCALayer ЭЦП)
     path('api/sign/card/<int:contract_id>/',       SignCardView.as_view(),        name='sign_card'),
