@@ -1,4 +1,5 @@
 import re
+import logging
 from django.db.models import Sum
 from django.shortcuts import render, redirect, get_object_or_404
 from rest_framework.viewsets import ModelViewSet
@@ -25,8 +26,10 @@ import hashlib
 import random
 from django.conf import settings
 from rest_framework.views import APIView
-from .utils import send_sms
+from .utils import send_sms, normalize_phone, build_contract_sms
 import hashlib
+
+logger = logging.getLogger(__name__)
 
 OTP_CACHE_KEY = "sms_otp_{contract_id}"
 OTP_TTL = 120
@@ -52,17 +55,25 @@ def verify_and_clear_otp(contract_id, code):
 
 
 def set_cooldown(contract_id):
-    cache.set(COOLDOWN_KEY.format(contract_id=contract_id), True, COOLDOWN_TTL)
+    import time
+    # Сохраняем время истечения, а не просто True
+    expire_at = time.time() + COOLDOWN_TTL
+    cache.set(COOLDOWN_KEY.format(contract_id=contract_id), expire_at, COOLDOWN_TTL + 5)
 
 
 def cooldown_remaining(contract_id):
-    return 30 if cache.get(COOLDOWN_KEY.format(contract_id=contract_id)) else 0
+    import time
+    expire_at = cache.get(COOLDOWN_KEY.format(contract_id=contract_id))
+    if not expire_at:
+        return 0
+    return max(0, int(expire_at - time.time()))
 
 
 class ContractSmsSendView(APIView):
     def post(self, request, contract_id):
         contract = get_object_or_404(
-            Contract.objects.select_related("client"),
+            Contract.objects.select_related("client", "rental")
+                            .prefetch_related("rental__items__equipment"),
             id=contract_id,
         )
 
@@ -75,35 +86,68 @@ class ContractSmsSendView(APIView):
         phone = contract.client.phone
         if not phone:
             return Response(
-                {"ok": False, "error": "Нет номера телефона"},
+                {"ok": False, "error": "У клиента не указан номер телефона"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if cooldown_remaining(contract_id):
+        remaining = cooldown_remaining(contract_id)
+        if remaining:
             return Response(
-                {"ok": False, "error": "Подождите перед повторной отправкой"},
+                {
+                    "ok": False,
+                    "error": f"Подождите {remaining} сек. перед повторной отправкой",
+                    "cooldown": remaining,
+                },
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
+        normalized_phone = normalize_phone(phone)
+
+        # ── SMS 1: копия договора ─────────────────────────────────────────────
+        contract_text = build_contract_sms(contract)
+        ok_contract, err_contract = send_sms(normalized_phone, contract_text)
+        if not ok_contract:
+            logger.warning(
+                "Не удалось отправить копию договора на %s: %s",
+                normalized_phone, err_contract,
+            )
+            # Не блокируем процесс — OTP всё равно отправляем
+
+        # ── SMS 2: OTP-код для подписания ─────────────────────────────────────
         code = generate_otp()
         store_otp(contract_id, code)
 
-        ok, error = send_sms(phone, f"Код подтверждения: {code}")
+        otp_text = (
+            f"Ski Rent: Договор #{contract_id}\n"
+            f"Код подписания: {code}\n"
+            f"Никому не сообщайте этот код.\n"
+            f"Действителен 2 минуты."
+        )
+        ok_otp, err_otp = send_sms(normalized_phone, otp_text)
 
-        if not ok:
+        if not ok_otp:
+            cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
             return Response(
-                {"ok": False, "error": error or "Ошибка отправки SMS"},
+                {"ok": False, "error": err_otp or "Ошибка отправки SMS с кодом"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         set_cooldown(contract_id)
 
-        return Response({"ok": True})
+        response_data = {"ok": True}
+        if settings.DEBUG:
+            # В режиме разработки показываем код прямо в интерфейсе
+            response_data["dev_otp"] = code
+
+        return Response(response_data)
 
 
 class ContractSmsVerifyView(APIView):
     def post(self, request, contract_id):
-        contract = get_object_or_404(Contract, id=contract_id)
+        contract = get_object_or_404(
+            Contract.objects.select_related("client", "rental"),
+            id=contract_id,
+        )
 
         if contract.is_signed:
             return Response(
@@ -120,7 +164,6 @@ class ContractSmsVerifyView(APIView):
             )
 
         raw_sig = "sms_" + hashlib.sha256(code.encode()).hexdigest()
-
         now = timezone.now()
 
         Signature.objects.create(
@@ -134,6 +177,23 @@ class ContractSmsVerifyView(APIView):
         contract.accepted_at = now
         contract.signature_data = raw_sig
         contract.save()
+
+        # ── SMS-подтверждение о подписании договора ───────────────────────────
+        phone = contract.client.phone
+        if phone:
+            normalized_phone = normalize_phone(phone)
+            signed_str = now.strftime("%d.%m.%Y в %H:%M")
+            confirm_text = (
+                f"Ski Rent: Договор #{contract_id} подписан {signed_str}.\n"
+                f"Клиент: {contract.client.full_name}.\n"
+                f"Если вы не подписывали этот договор — обратитесь к оператору."
+            )
+            ok_c, _ = send_sms(normalized_phone, confirm_text)
+            if not ok_c:
+                logger.warning(
+                    "Не удалось отправить подтверждение подписания на %s",
+                    normalized_phone,
+                )
 
         return Response({"ok": True})
 

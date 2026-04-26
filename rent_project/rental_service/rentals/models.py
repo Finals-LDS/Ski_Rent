@@ -45,8 +45,16 @@ class Rental(models.Model):
             raise ValidationError({'end_date': 'Дата окончания не может быть раньше даты начала.'})
 
     def generate_contract_number(self):
-        count = Rental.objects.count() + 1
-        return f'C{count:03d}'
+        # Используем max(id)+1 вместо count(), чтобы избежать
+        # дублирования при удалённых записях
+        last = Rental.objects.order_by('-id').values_list('id', flat=True).first()
+        seq = (last + 1) if last else 1
+        candidate = f'C{seq:03d}'
+        # Гарантируем уникальность в случае коллизий
+        while Rental.objects.filter(contract_number=candidate).exists():
+            seq += 1
+            candidate = f'C{seq:03d}'
+        return candidate
 
     @property
     def rental_days(self):

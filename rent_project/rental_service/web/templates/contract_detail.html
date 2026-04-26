@@ -644,6 +644,27 @@ function onError(message, errorStep) {
   unlockUI();
 }
 
+var _smsCooldownTimer = null;
+
+function startSmsCooldown(seconds) {
+  var btn = document.getElementById('btn-sms-send');
+  btn.disabled = true;
+  var remaining = seconds;
+
+  function tick() {
+    btn.textContent = 'Повторить через ' + remaining + ' сек.';
+    if (remaining <= 0) {
+      clearInterval(_smsCooldownTimer);
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:currentColor;flex-shrink:0"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg> Отправить SMS с кодом';
+    }
+    remaining--;
+  }
+
+  tick();
+  _smsCooldownTimer = setInterval(tick, 1000);
+}
+
 function sendSmsCode() {
   const smsBox = document.getElementById('sms-status-box');
   const smsTxt = document.getElementById('sms-status-text');
@@ -659,8 +680,8 @@ function sendSmsCode() {
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
     body:    '{}',
   })
-  .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body }; }); })
-  .then(function ({ ok, body }) {
+  .then(function (r) { return r.json().then(function (body) { return { status: r.status, ok: r.ok, body }; }); })
+  .then(function ({ status, ok, body }) {
     if (ok && body.ok) {
       smsBox.className = 'status-box show sb-success';
       smsTxt.textContent = 'Код отправлен. Введите 6 цифр из SMS.';
@@ -668,8 +689,20 @@ function sendSmsCode() {
       otpRow.classList.add('show');
       document.getElementById('sms-otp').value = '';
       document.getElementById('sms-otp').focus();
-      unlockUI();
-      document.getElementById('btn-sms-send').disabled = false;
+      // Разблокируем всё кроме кнопки отправки — запускаем отсчёт
+      document.getElementById('btn-eds').disabled = false;
+      document.getElementById('btn-sms-verify').disabled = false;
+      document.getElementById('sms-otp').disabled = false;
+      startSmsCooldown(30);
+    } else if (status === 429) {
+      // Уже в кулдауне — синхронизируем таймер с сервером
+      const wait = body.cooldown || 30;
+      smsBox.className = 'status-box show sb-error';
+      smsTxt.textContent = '⏳  ' + (body.error || 'Подождите перед повторной отправкой');
+      document.getElementById('btn-eds').disabled = false;
+      document.getElementById('btn-sms-verify').disabled = false;
+      document.getElementById('sms-otp').disabled = false;
+      startSmsCooldown(wait);
     } else {
       smsBox.className = 'status-box show sb-error';
       smsTxt.textContent = '❌  ' + (body.error || 'Ошибка отправки');
