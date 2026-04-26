@@ -111,6 +111,26 @@ def dashboard(request):
                 Discount.objects.create(name=name, percent=int(percent), min_days=int(min_days))
                 messages.success(request, "Скидка добавлена.")
                 return redirect("dashboard")
+        if action == "delete_discount":
+            discount_id = request.POST.get("discount_id", "").strip()
+            if discount_id:
+                discount = get_object_or_404(Discount, pk=discount_id)
+                discount.delete()
+                messages.success(request, "Скидка удалена.")
+            return redirect("dashboard")
+        if action == "edit_discount":
+            discount_id = request.POST.get("discount_id", "").strip()
+            name = request.POST.get("name", "").strip()
+            percent = request.POST.get("percent", "").strip()
+            min_days = request.POST.get("min_days", "").strip()
+            if discount_id and name and percent and min_days:
+                discount = get_object_or_404(Discount, pk=discount_id)
+                discount.name = name
+                discount.percent = int(percent)
+                discount.min_days = int(min_days)
+                discount.save(update_fields=["name", "percent", "min_days"])
+                messages.success(request, "Скидка обновлена.")
+            return redirect("dashboard")
         if action == "save_modifiers":
             weekend = request.POST.get("weekday_multiplier", "").strip()
             holiday = request.POST.get("holiday_multiplier", "").strip()

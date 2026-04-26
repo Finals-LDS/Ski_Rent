@@ -1,9 +1,18 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import ssl
+
+try:
+    import certifi
+except Exception:
+    certifi = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Подгружаем .env из стандартных мест проекта (с приоритетом ближайшего).
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR.parent / ".env")
 load_dotenv()
 
 # SECURITY
@@ -123,3 +132,27 @@ SMS_SENDER = "SkiRent"
 SMS_API_URL = "https://smsc.kz/sys/send.php"
 
 OTP_EXPIRE_SECONDS = 120
+
+# EMAIL
+# По умолчанию отправляем через SMTP, чтобы письма реально приходили.
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+)
+
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False") == "True"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@skirent.local")
+
+# На некоторых macOS/Python окружениях нет корректного системного trust store.
+# Если certifi доступен, указываем его CA bundle для SMTP TLS.
+if certifi is not None:
+    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+
+# Дополнительная настройка таймаута подключения к SMTP.
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "20"))

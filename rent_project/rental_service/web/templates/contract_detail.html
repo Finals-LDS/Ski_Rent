@@ -140,6 +140,8 @@
 
     .btn-sms  { background:rgba(63,185,80,.1); border:1px solid rgba(63,185,80,.25); color:var(--green); }
     .btn-sms:hover:not(:disabled) { background:rgba(63,185,80,.2); }
+    .btn-email { background:rgba(79,172,254,.12); border:1px solid rgba(79,172,254,.3); color:var(--accent); }
+    .btn-email:hover:not(:disabled) { background:rgba(79,172,254,.22); }
 
     .sms-otp-row { display:none; flex-direction:column; gap:10px; margin-bottom:14px; }
     .sms-otp-row.show { display:flex; }
@@ -304,7 +306,8 @@
         </div>
         <div class="eds-sub">
           На номер клиента <strong>{{ client.phone|default:"не указан" }}</strong> уйдёт SMS с 6-значным кодом.
-          После получения введите код и нажмите «Подтвердить».
+          Если SMS не пришло, повторную отправку можно выполнить на email
+          <strong>{{ client.email|default:"не указан" }}</strong>.
         </div>
         <div class="status-box" id="sms-status-box">
           <span id="sms-status-text"></span>
@@ -319,6 +322,12 @@
         <button type="button" class="btn btn-sms" id="btn-sms-send" onclick="sendSmsCode()">
           <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
           Отправить SMS с кодом
+        </button>
+      </br>
+      </br>
+        <button type="button" class="btn btn-email" id="btn-email-send" onclick="sendEmailCode()">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 2-8 5L4 6h16z"/></svg>
+          SMS не пришло? Отправить код на email
         </button>
       </div>
       {% endif %}
@@ -415,12 +424,14 @@ function toBase64(str) {
 function lockUI() {
   document.getElementById('btn-eds').disabled = true;
   document.getElementById('btn-sms-send').disabled = true;
+  document.getElementById('btn-email-send').disabled = true;
   document.getElementById('btn-sms-verify').disabled = true;
   document.getElementById('sms-otp').disabled = true;
 }
 function unlockUI() {
   document.getElementById('btn-eds').disabled = false;
   document.getElementById('btn-sms-send').disabled = false;
+  document.getElementById('btn-email-send').disabled = false;
   document.getElementById('btn-sms-verify').disabled = false;
   document.getElementById('sms-otp').disabled = false;
 }
@@ -666,31 +677,43 @@ function startSmsCooldown(seconds) {
 }
 
 function sendSmsCode() {
+  sendOtpCode('sms');
+}
+
+function sendEmailCode() {
+  sendOtpCode('email');
+}
+
+function sendOtpCode(channel) {
   const smsBox = document.getElementById('sms-status-box');
   const smsTxt = document.getElementById('sms-status-text');
   const otpRow = document.getElementById('sms-otp-row');
 
   smsBox.className = 'status-box show sb-waiting';
-  smsTxt.textContent = 'Отправляем SMS...';
+  smsTxt.textContent = channel === 'email' ? 'Отправляем код на email...' : 'Отправляем SMS...';
   lockUI();
 
   fetch(smsSendUrl(), {
     method:  'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-    body:    '{}',
+    body:    JSON.stringify({ channel: channel }),
   })
   .then(function (r) { return r.json().then(function (body) { return { status: r.status, ok: r.ok, body }; }); })
   .then(function ({ status, ok, body }) {
     if (ok && body.ok) {
+      const usedChannel = body.channel || channel;
       smsBox.className = 'status-box show sb-success';
-      smsTxt.textContent = 'Код отправлен. Введите 6 цифр из SMS.';
+      smsTxt.textContent = usedChannel === 'email'
+        ? 'Код отправлен на email клиента. Введите 6 цифр.'
+        : 'Код отправлен по SMS. Введите 6 цифр.';
       if (body.dev_otp) smsTxt.textContent += ' [DEBUG код: ' + body.dev_otp + ']';
       otpRow.classList.add('show');
       document.getElementById('sms-otp').value = '';
       document.getElementById('sms-otp').focus();
       // Разблокируем всё кроме кнопки отправки — запускаем отсчёт
       document.getElementById('btn-eds').disabled = false;
+      document.getElementById('btn-email-send').disabled = false;
       document.getElementById('btn-sms-verify').disabled = false;
       document.getElementById('sms-otp').disabled = false;
       startSmsCooldown(30);
@@ -700,6 +723,7 @@ function sendSmsCode() {
       smsBox.className = 'status-box show sb-error';
       smsTxt.textContent = '⏳  ' + (body.error || 'Подождите перед повторной отправкой');
       document.getElementById('btn-eds').disabled = false;
+      document.getElementById('btn-email-send').disabled = false;
       document.getElementById('btn-sms-verify').disabled = false;
       document.getElementById('sms-otp').disabled = false;
       startSmsCooldown(wait);

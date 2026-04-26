@@ -28,6 +28,7 @@ from django.conf import settings
 from rest_framework.views import APIView
 from .utils import send_sms, normalize_phone, build_contract_sms
 import hashlib
+from django.core.mail import send_mail
 
 logger = logging.getLogger(__name__)
 
@@ -83,12 +84,12 @@ class ContractSmsSendView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
+        send_channel = (request.data.get("channel") or "sms").strip().lower()
+        if send_channel not in ("sms", "email"):
+            send_channel = "sms"
+
         phone = contract.client.phone
-        if not phone:
-            return Response(
-                {"ok": False, "error": "У клиента не указан номер телефона"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        email = contract.client.email
 
         remaining = cooldown_remaining(contract_id)
         if remaining:
@@ -101,40 +102,101 @@ class ContractSmsSendView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        normalized_phone = normalize_phone(phone)
-
-        # ── SMS 1: копия договора ─────────────────────────────────────────────
-        contract_text = build_contract_sms(contract)
-        ok_contract, err_contract = send_sms(normalized_phone, contract_text)
-        if not ok_contract:
-            logger.warning(
-                "Не удалось отправить копию договора на %s: %s",
-                normalized_phone, err_contract,
-            )
-            # Не блокируем процесс — OTP всё равно отправляем
-
-        # ── SMS 2: OTP-код для подписания ─────────────────────────────────────
         code = generate_otp()
         store_otp(contract_id, code)
 
-        otp_text = (
+        otp_text_sms = (
             f"Ski Rent: Договор #{contract_id}\n"
             f"Код подписания: {code}\n"
             f"Никому не сообщайте этот код.\n"
             f"Действителен 2 минуты."
         )
-        ok_otp, err_otp = send_sms(normalized_phone, otp_text)
 
-        if not ok_otp:
+        otp_text_email = (
+            f"Код подтверждения для подписания договора #{contract_id}: {code}\n\n"
+            f"Срок действия кода: 2 минуты.\n"
+            f"Если вы не запрашивали подписание, просто проигнорируйте это письмо."
+        )
+
+        used_channel = send_channel
+        error_message = None
+
+        if send_channel == "sms":
+            if not phone:
+                if email:
+                    used_channel = "email"
+                else:
+                    cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
+                    return Response(
+                        {"ok": False, "error": "У клиента не указан номер телефона или email"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            if used_channel == "sms":
+                normalized_phone = normalize_phone(phone)
+
+                # ── SMS 1: копия договора ─────────────────────────────────────
+                contract_text = build_contract_sms(contract)
+                ok_contract, err_contract = send_sms(normalized_phone, contract_text)
+                if not ok_contract:
+                    logger.warning(
+                        "Не удалось отправить копию договора на %s: %s",
+                        normalized_phone, err_contract,
+                    )
+                    # Не блокируем процесс — OTP всё равно отправляем
+
+                # ── SMS 2: OTP-код для подписания ─────────────────────────────
+                ok_otp, err_otp = send_sms(normalized_phone, otp_text_sms)
+                if not ok_otp:
+                    if email:
+                        used_channel = "email"
+                        error_message = err_otp
+                    else:
+                        cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
+                        return Response(
+                            {"ok": False, "error": err_otp or "Ошибка отправки SMS с кодом"},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        )
+
+        if used_channel == "email":
+            if not email:
+                cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
+                return Response(
+                    {"ok": False, "error": "У клиента не указан email для отправки кода"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                send_mail(
+                    subject=f"Ski Rent: код подписания договора #{contract_id}",
+                    message=otp_text_email,
+                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+            except Exception as exc:
+                logger.warning("Не удалось отправить OTP на email %s: %s", email, exc)
+                cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
+                error_text = "Ошибка отправки кода на email"
+                if settings.DEBUG:
+                    error_text = f"{error_text}: {exc}"
+                return Response(
+                    {"ok": False, "error": error_text},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+
+        if used_channel not in ("sms", "email"):
             cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
             return Response(
-                {"ok": False, "error": err_otp or "Ошибка отправки SMS с кодом"},
+                {"ok": False, "error": "Не удалось отправить код подтверждения"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         set_cooldown(contract_id)
 
-        response_data = {"ok": True}
+        response_data = {"ok": True, "channel": used_channel}
+        if used_channel == "email" and error_message:
+            response_data["fallback_reason"] = error_message
         if settings.DEBUG:
             # В режиме разработки показываем код прямо в интерфейсе
             response_data["dev_otp"] = code
