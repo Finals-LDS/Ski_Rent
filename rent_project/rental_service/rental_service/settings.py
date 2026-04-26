@@ -126,10 +126,12 @@ CACHES = {
     }
 }
 
-SMSC_LOGIN = "mqwmee"
-SMSC_PASSWORD = "12345678"
-SMS_SENDER = "SkiRent"
-SMS_API_URL = "https://smsc.kz/sys/send.php"
+SMSC_LOGIN = os.getenv("SMSC_LOGIN", "")
+SMSC_PASSWORD = os.getenv("SMSC_PASSWORD", "")
+SMS_SENDER = os.getenv("SMS_SENDER", "SkiRent")
+SMS_API_URL = os.getenv("SMS_API_URL", "https://smsc.kz/sys/send.php")
+# Если True, при ошибках провайдера не подменяем отправку консольным debug-успехом.
+SMS_STRICT_REAL_SEND = os.getenv("SMS_STRICT_REAL_SEND", "True") == "True"
 
 OTP_EXPIRE_SECONDS = 120
 

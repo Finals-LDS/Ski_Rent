@@ -30,6 +30,8 @@ def send_sms(phone: str, message: str):
     login    = (getattr(settings, 'SMSC_LOGIN',    '') or '').strip()
     password = (getattr(settings, 'SMSC_PASSWORD', '') or '').strip()
 
+    strict_real_send = bool(getattr(settings, "SMS_STRICT_REAL_SEND", True))
+
     # ── Попытка реальной отправки через smsc.kz ──────────────────────────────
     if login and password:
         try:
@@ -50,9 +52,14 @@ def send_sms(phone: str, message: str):
             data = resp.json()
 
             if 'error' in data:
-                err = (str(data.get('error_code', '')) + ' ' + str(data['error'])).strip()
+                code = str(data.get('error_code', '')).strip()
+                err = (code + ' ' + str(data['error'])).strip()
+                if code == '2':
+                    err += ' (проверьте SMSC_LOGIN/SMSC_PASSWORD)'
+                elif code == '4':
+                    err += ' (IP заблокирован в SMSC, разблокируйте/добавьте IP в кабинете)'
                 logger.warning('smsc.kz error: %s', err)
-                if getattr(settings, 'DEBUG', False):
+                if getattr(settings, 'DEBUG', False) and not strict_real_send:
                     logger.warning('[SMS-CONSOLE] %s -> %s', phone, message)
                     return True, None
                 return False, err
@@ -62,13 +69,13 @@ def send_sms(phone: str, message: str):
 
         except Exception as exc:
             logger.warning('send_sms exception: %s', exc)
-            if getattr(settings, 'DEBUG', False):
+            if getattr(settings, 'DEBUG', False) and not strict_real_send:
                 logger.warning('[SMS-CONSOLE] %s -> %s', phone, message)
                 return True, None
             return False, str(exc)
 
     # ── Нет учётных данных ───────────────────────────────────────────────────
-    if getattr(settings, 'DEBUG', False):
+    if getattr(settings, 'DEBUG', False) and not strict_real_send:
         logger.warning('[SMS-CONSOLE] %s -> %s', phone, message)
         return True, None
 
