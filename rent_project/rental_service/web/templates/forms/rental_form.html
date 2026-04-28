@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Новая аренда</title>
+<style>
+  :root {
+    --bg: #0e1117; --surface: #161b22; --surface2: #1c2130;
+    --border: rgba(255,255,255,.08); --border2: rgba(255,255,255,.14);
+    --text: #e6edf3; --muted: rgba(230,237,243,.55);
+    --accent: #4facfe; --red: #f85149;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif;
+         display: flex; align-items: flex-start; justify-content: center;
+         min-height: 100vh; padding: 32px 16px; }
+  .card { width: 100%; max-width: 980px; background: var(--surface);
+          border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
+  h2 { font-size: 20px; font-weight: 800; margin-bottom: 22px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px;
+          text-transform: uppercase; letter-spacing: .5px; }
+  input, select { width: 100%; padding: 9px 12px; border-radius: 10px;
+                  border: 1px solid var(--border2); background: var(--surface2);
+                  color: var(--text); font-size: 13px; outline: none;
+                  transition: border-color .15s; }
+  input:focus, select:focus { border-color: var(--accent); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .items-title { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                 letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+  .item-row { display: grid; grid-template-columns: 2.5fr 90px 100px 90px 36px;
+              gap: 8px; align-items: end; margin-bottom: 8px;
+              padding: 12px; background: var(--surface2);
+              border: 1px solid var(--border); border-radius: 10px; }
+  .field { display: flex; flex-direction: column; }
+  .remove-btn { background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.3);
+                color: var(--red); border-radius: 8px; cursor: pointer;
+                height: 36px; display: flex; align-items: center; justify-content: center;
+                font-size: 14px; transition: background .15s; }
+  .remove-btn:hover { background: rgba(248,81,73,.25); }
+  .add-btn { display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+             border-radius: 10px; background: rgba(79,172,254,.08);
+             border: 1px dashed rgba(79,172,254,.35); color: var(--accent);
+             cursor: pointer; font-size: 13px; font-weight: 600;
+             transition: background .15s; margin-bottom: 18px; }
+  .add-btn:hover { background: rgba(79,172,254,.15); }
+  .total-bar { display: flex; align-items: center; justify-content: flex-end;
+               gap: 10px; padding: 12px 16px; background: var(--surface2);
+               border: 1px solid var(--border); border-radius: 10px; margin-bottom: 20px;
+               font-size: 14px; color: var(--muted); }
+  .total-bar strong { font-size: 18px; color: var(--accent); font-weight: 800; }
+  .actions { display: flex; align-items: center; gap: 12px; }
+  .btn { padding: 10px 18px; border-radius: 10px; background: rgba(79,172,254,.12);
+         border: 1px solid rgba(79,172,254,.3); color: var(--accent);
+         cursor: pointer; font-size: 14px; font-weight: 600; }
+  .btn-danger { background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.3);
+                color: var(--red); border-radius: 10px; padding: 10px 18px;
+                cursor: pointer; font-size: 14px; text-decoration: none; }
+  .err { color: var(--red); margin-bottom: 14px; font-size: 13px;
+         padding: 10px 14px; background: rgba(248,81,73,.08);
+         border: 1px solid rgba(248,81,73,.2); border-radius: 10px; }
+  .readonly-input { background: rgba(79,172,254,.05) !important; color: var(--muted) !important; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Создать аренду</h2>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+  <form method="post" id="rentalForm">
+    {% csrf_token %}
+
+    <div class="grid3">
+      <div>
+        <label>Клиент *</label>
+        <select name="client_id" required>
+          <option value="">— выберите —</option>
+          {% for c in clients %}
+            <option value="{{ c.id }}">{{ c.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Дата начала *</label>
+        <input name="start_date" type="date" required id="startDate">
+      </div>
+      <div>
+        <label>Дней аренды *</label>
+        <input name="days" type="number" min="1" value="1" required id="daysInput">
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <label>Статус</label>
+        <select name="status">
+          <option value="draft">Черновик</option>
+          <option value="open">Открыт</option>
+          <option value="booked">Забронирован</option>
+          <option value="rented">Арендован</option>
+        </select>
+      </div>
+      <div>
+        <label>Скидка</label>
+        <select name="discount_id" id="discountSelect" onchange="recalc()">
+          <option value="">— без скидки —</option>
+          {% for d in discounts %}
+            <option value="{{ d.id }}" data-percent="{{ d.percent }}" data-min-days="{{ d.min_days }}">
+              {{ d.name }} — {{ d.percent }}% (от {{ d.min_days }} дн.)
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="items-title">Снаряжение</div>
+    <div id="itemsContainer"></div>
+
+    <button type="button" class="add-btn" onclick="addItemRow()">
+      ➕ Добавить позицию
+    </button>
+
+    <div class="total-bar">
+      Итого за аренду: <strong id="totalDisplay">0 ₸</strong>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="submit">Сохранить</button>
+      <a href="{% url 'dashboard' %}">
+        <button class="btn-danger" type="button">Отмена</button>
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+// Данные снаряжения: id → {name, price, size}
+const EQ = {
+  {% for e in equipments %}
+  "{{ e.id }}": {
+    name: "{{ e.name|escapejs }}",
+    price: {{ e.price_per_day }},
+    has_sizes: {{ e.has_sizes|yesno:"true,false" }},
+    size: "{{ e.size|escapejs }}",
+    sizes: [{% for s in e.sizes.all %}{"size":"{{ s.size|escapejs }}","qty":{{ s.quantity_available }}}{% if not forloop.last %},{% endif %}{% endfor %}]
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+};
+
+const OPTIONS_HTML = '<option value="">— снаряжение —</option>' +
+  Object.entries(EQ).map(([id, e]) =>
+    `<option value="${id}">${e.name} (${parseFloat(e.price).toLocaleString('ru-RU')} ₸/д.)${e.has_sizes ? ' 📐' : ''}</option>`
+  ).join('');
+
+let rc = 0;
+
+function addItemRow() {
+  rc++;
+  const n = rc;
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.dataset.row = n;
+  div.innerHTML = `
+    <div class="field">
+      <label>Снаряжение</label>
+      <select name="eq_id_${n}" onchange="onEqChange(${n})" required>${OPTIONS_HTML}</select>
+    </div>
+    <div class="field" id="sf_${n}" style="display:none">
+      <div id="sc_${n}"></div>
+    </div>
+    <div class="field">
+      <label>Кол-во</label>
+      <input type="number" name="eq_qty_${n}" value="1" min="1" max="99" oninput="recalc()">
+    </div>
+    <div class="field">
+      <label>Цена/д.</label>
+      <input class="readonly-input" type="text" id="pd_${n}" readonly value="—">
+    </div>
+    <button type="button" class="remove-btn" onclick="removeRow(${n})" title="Удалить">✕</button>
+  `;
+  document.getElementById('itemsContainer').appendChild(div);
+
+  // Скрытый маркер — сообщает серверу какие строки есть
+  const m = document.createElement('input');
+  m.type = 'hidden'; m.name = 'item_rows'; m.value = n; m.id = `mk_${n}`;
+  document.getElementById('itemsContainer').appendChild(m);
+  recalc();
+}
+
+function onEqChange(n) {
+  const eqId = document.querySelector(`select[name="eq_id_${n}"]`).value;
+  const sf = document.getElementById(`sf_${n}`);
+  const sc = document.getElementById(`sc_${n}`);
+  const pd = document.getElementById(`pd_${n}`);
+
+  if (!eqId) {
+    sf.style.display = 'none';
+    pd.value = '—';
+    recalc();
+    return;
+  }
+
+  const eq = EQ[eqId];
+  pd.value = parseFloat(eq.price).toLocaleString('ru-RU') + ' ₸';
+
+  if (eq.has_sizes && eq.sizes.length > 0) {
+    // Снаряжение с размерами — показываем select
+    const options = eq.sizes.map(s =>
+      `<option value="${s.size}">${s.size} (доступно: ${s.qty})</option>`
+    ).join('');
+    sc.innerHTML = `
+      <label>Размер</label>
+      <select name="eq_size_${n}">${options}</select>
+    `;
+    sf.style.display = 'flex';
+  } else if (eq.size && eq.size.trim() !== '') {
+    // Одиночный размер — показываем readonly
+    sc.innerHTML = `
+      <label>Размер</label>
+      <input type="text" name="eq_size_${n}" value="${eq.size}" readonly
+             style="background:rgba(79,172,254,.05);color:var(--muted);">
+    `;
+    sf.style.display = 'flex';
+  } else {
+    // Нет размера
+    sf.style.display = 'none';
+    sc.innerHTML = `<input type="hidden" name="eq_size_${n}" value="">`;
+  }
+
+  recalc();
+}
+
+function removeRow(n) {
+  const r = document.querySelector(`.item-row[data-row="${n}"]`);
+  const m = document.getElementById(`mk_${n}`);
+  if (r) r.remove();
+  if (m) m.remove();
+  recalc();
+}
+
+function recalc() {
+  const days = parseInt(document.getElementById('daysInput').value) || 1;
+  let total = 0;
+  document.querySelectorAll('.item-row').forEach(row => {
+    const n = row.dataset.row;
+    const sel = document.querySelector(`select[name="eq_id_${n}"]`);
+    const qty = parseInt(document.querySelector(`input[name="eq_qty_${n}"]`).value) || 1;
+    if (sel && sel.value && EQ[sel.value]) {
+      total += parseFloat(EQ[sel.value].price) * days * qty;
+    }
+  });
+
+  // Применяем скидку
+  const discSel = document.getElementById('discountSelect');
+  let discountText = '';
+  if (discSel && discSel.value) {
+    const opt = discSel.options[discSel.selectedIndex];
+    const percent = parseFloat(opt.dataset.percent) || 0;
+    const minDays = parseInt(opt.dataset.minDays) || 0;
+    if (days >= minDays && percent > 0) {
+      const discAmount = total * percent / 100;
+      discountText = ` <span style="color:#3fb950;font-size:13px;">−${percent}% (−${discAmount.toLocaleString('ru-RU')} ₸)</span>`;
+      total -= discAmount;
+    } else if (days < minDays) {
+      discountText = ` <span style="color:#f85149;font-size:12px;">Скидка недоступна (нужно от ${minDays} дн.)</span>`;
+    }
+  }
+
+  document.getElementById('totalDisplay').innerHTML = total.toLocaleString('ru-RU') + ' ₸' + discountText;
+}
+
+document.getElementById('daysInput').addEventListener('input', recalc);
+addItemRow(); // Добавляем первую строку при загрузке
+</script>
+</body>
+</html>
