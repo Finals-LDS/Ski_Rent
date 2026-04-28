@@ -1,6 +1,66 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Новый клиент</title>
-<style>body{background:#0e1117;color:#e6edf3;font-family:'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh}.card{width:100%;max-width:640px;background:#161b22;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px}label{display:block;font-size:12px;color:rgba(230,237,243,.55);margin-bottom:6px}input{width:95%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#1c2130;color:#e6edf3}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.btn{margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(79,172,254,.12);border:1px solid rgba(79,172,254,.3);color:#4facfe;cursor:pointer}.link{margin-left:8px;color:rgba(230,237,243,.7)}.err{color:#f85149;margin-bottom:8px}.btn-danger { background:rgba(248,81,73,.12); border:1px solid rgba(248,81,73,.3); color:var(--red); border-radius:10px; padding: 10px; cursor:pointer; }input { width:87%; }</style></head>
-<body><div class="card"><h2>{% if client %}Редактирование клиента{% else %}Создать клиента{% endif %}</h2>{% if error %}<div class="err">{{ error }}</div>{% endif %}<form method="post">{% csrf_token %}<div class="grid"><div><label>ФИО *</label><input name="full_name" value="{{ client.full_name|default:'' }}" required></div><div><label>Телефон *</label><input name="phone" value="{{ client.phone|default:'' }}" placeholder="+7 700 777 77 77"></div><div><label>Email *</label><input name="email" value="{{ client.email|default:'' }}" placeholder="email@gmail.com"></div><div><label>Документ *</label><input name="document_id" value="{{ client.document_id|default:'' }}" placeholder="000000000000"></div></div></br><button class="btn" type="submit">Сохранить</button><a class="link" href="{% url 'dashboard' %}"><button class="btn-danger" type="button">Отмена</button></a></form></div></body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if client %}Редактирование клиента{% else %}Новый клиент{% endif %} — Ski Rent CRM</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#0e1117;--surface:#161b22;--surface2:#1c2130;--border:rgba(255,255,255,.08);--text:#e6edf3;--text-muted:rgba(230,237,243,.55);--accent:#4facfe;--red:#f85149}
+    body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+    .card{width:100%;max-width:680px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px}
+    h2{font-size:18px;font-weight:700;margin-bottom:20px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    label{font-size:12px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+    input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;outline:none;transition:border-color .15s}
+    input:focus{border-color:rgba(79,172,254,.4)}
+    .birthday-note{font-size:11px;color:var(--text-muted);margin-top:3px}
+    .actions{display:flex;gap:10px;margin-top:24px}
+    .btn{padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid;transition:background .15s}
+    .btn-primary{background:rgba(79,172,254,.12);border-color:rgba(79,172,254,.3);color:var(--accent)}
+    .btn-primary:hover{background:rgba(79,172,254,.22)}
+    .btn-cancel{background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.25);color:var(--red);text-decoration:none;display:inline-flex;align-items:center}
+    .btn-cancel:hover{background:rgba(248,81,73,.15)}
+    .err{color:var(--red);font-size:13px;margin-bottom:16px;padding:10px 14px;background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.2);border-radius:10px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>{% if client %}Редактирование клиента{% else %}Создать клиента{% endif %}</h2>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {% if client %}<input type="hidden" name="action" value="update"><input type="hidden" name="client_id" value="{{ client.id }}">{% endif %}
+      <div class="grid">
+        <div class="field">
+          <label>ФИО *</label>
+          <input name="full_name" value="{{ client.full_name|default:'' }}" required placeholder="Иванов Иван Иванович">
+        </div>
+        <div class="field">
+          <label>Телефон *</label>
+          <input name="phone" value="{{ client.phone|default:'' }}" placeholder="+7 700 777 77 77" required>
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input name="email" type="email" value="{{ client.email|default:'' }}" placeholder="email@gmail.com">
+        </div>
+        <div class="field">
+          <label>Документ (ID / ИИН)</label>
+          <input name="document_id" value="{{ client.document_id|default:'' }}" placeholder="000000000000">
+        </div>
+        <div class="field">
+          <label>Дата рождения</label>
+          <input name="birth_date" type="date"
+            value="{% if client.birth_date %}{{ client.birth_date|date:'Y-m-d' }}{% endif %}">
+          <span class="birthday-note">Используется для поздравления по email</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="submit">Сохранить</button>
+        <a href="{% url 'clients' %}" class="btn btn-cancel">Отмена</a>
+      </div>
+    </form>
+  </div>
+</body>
 </html>

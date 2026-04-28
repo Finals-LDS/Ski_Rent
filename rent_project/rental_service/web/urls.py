@@ -20,4 +20,7 @@ urlpatterns = [
 
     path('contracts/create/<int:rental_id>/',   views.contract_create_web,  name='contract_create_web'),
     path('contracts/<int:contract_id>/',        views.contract_detail_page, name='contract_detail'),
+
+    path('analytics/',                          views.analytics_page,       name='analytics'),
+    path('ai/chat/',                            views.ai_chat_view,         name='ai_chat'),
 ]

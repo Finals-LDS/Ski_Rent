@@ -26,7 +26,7 @@ import hashlib
 import random
 from django.conf import settings
 from rest_framework.views import APIView
-from .utils import send_sms, normalize_phone, build_contract_sms
+from .utils import send_sms, normalize_phone, build_contract_sms, send_contract_copy_email, send_contract_pdf_email
 import hashlib
 from django.core.mail import send_mail
 
@@ -104,6 +104,9 @@ class ContractSmsSendView(APIView):
 
         code = generate_otp()
         store_otp(contract_id, code)
+
+        # Отправляем копию договора + OTP на email клиента (параллельно SMS)
+        send_contract_copy_email(contract, code)
 
         otp_text_sms = (
             f"Ski Rent: Договор #{contract_id}\n"
@@ -256,6 +259,9 @@ class ContractSmsVerifyView(APIView):
                     "Не удалось отправить подтверждение подписания на %s",
                     normalized_phone,
                 )
+
+        # ── PDF договора на email ─────────────────────────────────────────────
+        send_contract_pdf_email(contract)
 
         return Response({"ok": True})
 

@@ -1,4 +1,8 @@
+import csv
+import io
+import json
 from django.db.models import Sum, Count, Q
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -100,6 +104,7 @@ def dashboard(request):
     """Главный дашборд. Контекст содержит роль пользователя для ветвления в шаблоне."""
     user = request.user
     _close_expired_rentals()
+    send_birthday_emails()
 
     if request.method == "POST" and request.user.role == "admin":
         action = request.POST.get("action", "").strip()
@@ -209,15 +214,20 @@ def clients_page(request):
             phone = request.POST.get("phone", "").strip()
             email = request.POST.get("email", "").strip() or None
             document_id = request.POST.get("document_id", "").strip() or None
+            birth_date_raw = request.POST.get("birth_date", "").strip() or None
+            birth_date = None
+            if birth_date_raw:
+                try:
+                    birth_date = date.fromisoformat(birth_date_raw)
+                except ValueError:
+                    pass
 
             if not full_name or not phone:
                 error = "Заполните обязательные поля: ФИО и телефон."
             else:
                 Client.objects.create(
-                    full_name=full_name,
-                    phone=phone,
-                    email=email,
-                    document_id=document_id,
+                    full_name=full_name, phone=phone,
+                    email=email, document_id=document_id, birth_date=birth_date,
                 )
                 messages.success(request, "Клиент добавлен.")
                 return redirect("clients")
@@ -227,6 +237,14 @@ def clients_page(request):
             client.phone = request.POST.get("phone", "").strip()
             client.email = request.POST.get("email", "").strip()
             client.document_id = request.POST.get("document_id", "").strip()
+            birth_date_raw = request.POST.get("birth_date", "").strip() or None
+            if birth_date_raw:
+                try:
+                    client.birth_date = date.fromisoformat(birth_date_raw)
+                except ValueError:
+                    pass
+            else:
+                client.birth_date = None
             client.save()
             messages.success(request, "Клиент обновлён.")
             return redirect("clients")
@@ -773,6 +791,13 @@ def client_create_page(request):
         phone = request.POST.get("phone", "").strip()
         email = request.POST.get("email", "").strip() or None
         document_id = request.POST.get("document_id", "").strip() or None
+        birth_date_raw = request.POST.get("birth_date", "").strip() or None
+        birth_date = None
+        if birth_date_raw:
+            try:
+                birth_date = date.fromisoformat(birth_date_raw)
+            except ValueError:
+                pass
         if not full_name or not phone:
             error = "Заполните обязательные поля: ФИО и телефон."
         else:
@@ -781,10 +806,14 @@ def client_create_page(request):
                 client.phone = phone
                 client.email = email
                 client.document_id = document_id
+                client.birth_date = birth_date
                 client.save()
                 messages.success(request, "Клиент обновлён.")
             else:
-                Client.objects.create(full_name=full_name, phone=phone, email=email, document_id=document_id)
+                Client.objects.create(
+                    full_name=full_name, phone=phone, email=email,
+                    document_id=document_id, birth_date=birth_date,
+                )
                 messages.success(request, "Клиент добавлен.")
             return redirect("clients")
     return render(request, "forms/client_form.html", {"user": request.user, "role": request.user.role, "is_admin": request.user.role == "admin", "is_manager": request.user.role in ("admin", "manager"), "is_cashier": request.user.role in ("admin", "manager", "cashier"), "error": error, "client": client})
@@ -1050,4 +1079,318 @@ def contract_detail_page(request, contract_id):
         'client':     contract.client,
         'signatures': signatures,
     }
-    return render(request, 'contract_detail.html', context)    
+    return render(request, 'contract_detail.html', context)
+
+
+# ─────────────────────────────────────────────────────────────
+# АНАЛИТИКА
+# ─────────────────────────────────────────────────────────────
+
+@login_required(login_url='login')
+def analytics_page(request):
+    if request.user.role not in ('admin', 'manager'):
+        return redirect('dashboard')
+
+    export = request.GET.get('export', '')
+
+    # CSV: журнал платежей
+    if export == 'payments_csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="payments.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Клиент', 'Договор', 'Сумма', 'Метод', 'Статус', 'Дата'])
+        for p in Payment.objects.select_related('rental__client').order_by('-created_at'):
+            client_name = p.rental.client.full_name if p.rental.client else '—'
+            writer.writerow([
+                p.id, client_name, p.rental.contract_number,
+                p.amount, p.payment_method, p.get_status_display(),
+                p.created_at.strftime('%d.%m.%Y %H:%M'),
+            ])
+        return response
+
+    # CSV: аренды
+    if export == 'rentals_csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="rentals.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Договор', 'Клиент', 'Статус', 'Начало', 'Конец', 'Сумма', 'Создан'])
+        for r in Rental.objects.select_related('client').order_by('-created_at'):
+            writer.writerow([
+                r.contract_number,
+                r.client.full_name if r.client else '—',
+                r.get_status_display(),
+                r.start_date or '—', r.end_date or '—',
+                r.total_price,
+                r.created_at.strftime('%d.%m.%Y'),
+            ])
+        return response
+
+    # CSV: снаряжение
+    if export == 'equipment_csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="equipment.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Название', 'Тип', 'Размер', 'Статус', 'Цена/день', 'Кол-во'])
+        from equipment.models import Equipment as Eq
+        for eq in Eq.objects.select_related('type').order_by('type__name', 'name'):
+            writer.writerow([
+                eq.id, eq.name, eq.type.name if eq.type else '—',
+                eq.size or '—', eq.get_status_display(), eq.price_per_day, eq.quantity,
+            ])
+        return response
+
+    # Excel: все отчёты в одном файле
+    if export == 'excel':
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment
+        except ImportError:
+            messages.error(request, 'Установите openpyxl для экспорта Excel.')
+            return redirect('analytics')
+
+        wb = Workbook()
+
+        # Лист 1: Журнал платежей
+        ws1 = wb.active
+        ws1.title = 'Платежи'
+        headers1 = ['ID', 'Клиент', 'Договор', 'Сумма', 'Метод', 'Статус', 'Дата']
+        ws1.append(headers1)
+        for cell in ws1[1]:
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill('solid', fgColor='1C2130')
+        for p in Payment.objects.select_related('rental__client').order_by('-created_at'):
+            client_name = p.rental.client.full_name if p.rental.client else '—'
+            ws1.append([
+                p.id, client_name, p.rental.contract_number,
+                float(p.amount), p.payment_method, p.get_status_display(),
+                p.created_at.strftime('%d.%m.%Y %H:%M'),
+            ])
+
+        # Лист 2: Аренды
+        ws2 = wb.create_sheet('Аренды')
+        headers2 = ['Договор', 'Клиент', 'Статус', 'Начало', 'Конец', 'Сумма', 'Создан']
+        ws2.append(headers2)
+        for cell in ws2[1]:
+            cell.font = Font(bold=True)
+        for r in Rental.objects.select_related('client').order_by('-created_at'):
+            ws2.append([
+                r.contract_number,
+                r.client.full_name if r.client else '—',
+                r.get_status_display(),
+                str(r.start_date or '—'), str(r.end_date or '—'),
+                float(r.total_price),
+                r.created_at.strftime('%d.%m.%Y'),
+            ])
+
+        # Лист 3: Снаряжение
+        ws3 = wb.create_sheet('Снаряжение')
+        headers3 = ['ID', 'Название', 'Тип', 'Размер', 'Статус', 'Цена/день', 'Кол-во']
+        ws3.append(headers3)
+        for cell in ws3[1]:
+            cell.font = Font(bold=True)
+        from equipment.models import Equipment as Eq
+        for eq in Eq.objects.select_related('type').order_by('type__name', 'name'):
+            ws3.append([
+                eq.id, eq.name, eq.type.name if eq.type else '—',
+                eq.size or '—', eq.get_status_display(),
+                float(eq.price_per_day), eq.quantity,
+            ])
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = 'attachment; filename="skirent_report.xlsx"'
+        return response
+
+    # ── Данные для дашбордов ────────────────────────────────
+    today = timezone.localdate()
+
+    # Выручка по месяцам (последние 12 месяцев)
+    monthly_revenue = []
+    monthly_labels = []
+    for i in range(11, -1, -1):
+        # вычисляем первый день месяца
+        if today.month - i <= 0:
+            m = today.month - i + 12
+            y = today.year - 1
+        else:
+            m = today.month - i
+            y = today.year
+        month_start = today.replace(year=y, month=m, day=1)
+        if m == 12:
+            month_end = month_start.replace(year=y + 1, month=1, day=1)
+        else:
+            month_end = month_start.replace(month=m + 1, day=1)
+        revenue = (
+            Payment.objects.filter(
+                status='paid',
+                created_at__date__gte=month_start,
+                created_at__date__lt=month_end,
+            ).aggregate(t=Sum('amount'))['t'] or 0
+        )
+        monthly_revenue.append(float(revenue))
+        monthly_labels.append(f'{m:02d}.{y}')
+
+    # Аренды по статусам
+    rental_statuses = {}
+    for code, label in Rental.STATUS_CHOICES:
+        rental_statuses[label] = Rental.objects.filter(status=code).count()
+
+    # Методы оплаты (текущий месяц)
+    month_start_dt = today.replace(day=1)
+    payment_methods_qs = (
+        Payment.objects.filter(status='paid', created_at__date__gte=month_start_dt)
+        .values('payment_method')
+        .annotate(total=Sum('amount'), cnt=Count('id'))
+    )
+    payment_methods = {p['payment_method']: {'total': float(p['total']), 'count': p['cnt']}
+                       for p in payment_methods_qs}
+
+    # Топ-5 клиентов
+    top_clients = list(
+        Rental.objects.values('client__full_name')
+        .annotate(total_spent=Sum('total_price'))
+        .order_by('-total_spent')[:5]
+    )
+
+    # Общая статистика
+    total_revenue = Payment.objects.filter(status='paid').aggregate(t=Sum('amount'))['t'] or 0
+    total_refunds = abs(
+        Payment.objects.filter(status='refund').aggregate(t=Sum('amount'))['t'] or 0
+    )
+    total_rentals = Rental.objects.count()
+    completed_rentals = Rental.objects.filter(status='completed').count()
+    total_clients = Client.objects.count()
+
+    context = {
+        'user': request.user,
+        'role': request.user.role,
+        'is_admin': request.user.role == 'admin',
+        'is_manager': request.user.role in ('admin', 'manager'),
+        'is_cashier': request.user.role in ('admin', 'manager', 'cashier'),
+
+        'total_revenue': total_revenue,
+        'total_refunds': total_refunds,
+        'total_rentals': total_rentals,
+        'completed_rentals': completed_rentals,
+        'total_clients': total_clients,
+
+        'monthly_labels_json': json.dumps(monthly_labels),
+        'monthly_revenue_json': json.dumps(monthly_revenue),
+        'rental_statuses_json': json.dumps(rental_statuses),
+        'payment_methods_json': json.dumps(payment_methods),
+        'top_clients_json': json.dumps([
+            {'name': c['client__full_name'] or '—', 'total': float(c['total_spent'] or 0)}
+            for c in top_clients
+        ]),
+    }
+    return render(request, 'analytics.html', context)
+
+
+# ─────────────────────────────────────────────────────────────
+# ИИ ПОМОЩНИК
+# ─────────────────────────────────────────────────────────────
+
+@login_required(login_url='login')
+def ai_chat_view(request):
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    try:
+        body = json.loads(request.body)
+        user_message = body.get('message', '').strip()
+    except Exception:
+        return HttpResponse('{"error":"bad request"}', content_type='application/json', status=400)
+
+    if not user_message:
+        return HttpResponse('{"error":"empty message"}', content_type='application/json', status=400)
+
+    try:
+        import anthropic
+        from django.conf import settings as django_settings
+
+        api_key = getattr(django_settings, 'ANTHROPIC_API_KEY', '')
+        if not api_key:
+            import os
+            api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+
+        client_ai = anthropic.Anthropic(api_key=api_key)
+
+        system_prompt = (
+            "Ты — виртуальный помощник для обучения персонала компании Ski Rent. "
+            "Компания предоставляет услуги проката горнолыжного снаряжения: лыжи, ботинки, палки, шлемы, защиту. "
+            "Ты помогаешь кассирам и менеджерам:\n"
+            "- Оформлять аренду снаряжения (создать аренду → добавить позиции → создать договор → получить подпись → начать аренду)\n"
+            "- Работать с клиентами: регистрация, поиск, обновление данных\n"
+            "- Принимать платежи: наличные, Kaspi Bank, Halyk Bank\n"
+            "- Делать возвраты и управлять скидками\n"
+            "- Понимать статусы аренды: черновик → открыт → забронирован → арендован → завершён / отменён\n"
+            "- Работать с отчётами и аналитикой\n"
+            "Отвечай кратко, по делу, на русском языке. При необходимости давай пошаговые инструкции."
+        )
+
+        message = client_ai.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{'role': 'user', 'content': user_message}],
+        )
+        reply = message.content[0].text
+    except Exception as e:
+        reply = f'Ошибка ИИ помощника: {e}'
+
+    return HttpResponse(
+        json.dumps({'reply': reply}, ensure_ascii=False),
+        content_type='application/json',
+    )
+
+
+# ─────────────────────────────────────────────────────────────
+# ПОЗДРАВЛЕНИЯ С ДНЁМ РОЖДЕНИЯ
+# ─────────────────────────────────────────────────────────────
+
+def send_birthday_emails():
+    """
+    Отправляет поздравления клиентам, у которых сегодня день рождения.
+    Вызывается один раз в день при загрузке дашборда.
+    """
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+
+    today = timezone.localdate()
+    year = today.year
+
+    clients_today = Client.objects.filter(
+        birth_date__month=today.month,
+        birth_date__day=today.day,
+        email__isnull=False,
+    ).exclude(email='').exclude(birthday_email_sent_year=year)
+
+    for client in clients_today:
+        if not client.email:
+            continue
+        subject = f'🎉 С Днём Рождения, {client.full_name.split()[0]}! — Ski Rent'
+        body = (
+            f'Уважаемый(ая) {client.full_name},\n\n'
+            f'Команда Ski Rent поздравляет Вас с Днём Рождения! 🎿\n\n'
+            f'В честь праздника мы дарим Вам специальную скидку 10% на любую аренду снаряжения '
+            f'в течение 7 дней. Просто назовите свой номер телефона при оформлении заказа.\n\n'
+            f'Желаем отличного катания и ярких впечатлений!\n\n'
+            f'С уважением,\nКоманда Ski Rent'
+        )
+        try:
+            send_mail(
+                subject,
+                body,
+                getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@skirent.kz'),
+                [client.email],
+                fail_silently=True,
+            )
+            client.birthday_email_sent_year = year
+            client.save(update_fields=['birthday_email_sent_year'])
+        except Exception:
+            pass
