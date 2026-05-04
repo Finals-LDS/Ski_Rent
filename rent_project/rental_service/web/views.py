@@ -16,6 +16,7 @@ from rentals.services import generate_contract_text
 from payments.models import Payment
 
 
+
 ROLE_DASHBOARDS = {
     "admin": "dashboard",
     "manager": "dashboard",
@@ -181,6 +182,28 @@ def dashboard(request):
         "total_income_month": total_income_month,
         "discounts": Discount.objects.order_by("min_days"),
         "price_modifier": PriceModifier.objects.first(),
+
+        "recent_refunds": Payment.objects.filter(status="refund")
+            .select_related("rental__client")
+            .order_by("-created_at")[:10],
+
+        "today_payments": Payment.objects.filter(
+            created_at__date=timezone.now().date()
+        ).select_related("rental__client").order_by("-created_at"),
+
+        "today_income": Payment.objects.filter(
+            created_at__date=timezone.now().date(),
+            status="paid"
+        ).aggregate(total=Sum("amount"))["total"] or 0,
+
+        "today_refunds": Payment.objects.filter(
+            created_at__date=timezone.now().date(),
+            status="refund"
+        ).aggregate(total=Sum("amount"))["total"] or 0,
+
+        "today_count": Payment.objects.filter(
+            created_at__date=timezone.now().date()
+        ).count(),
     }
     return render(request, "dashboard.html", context)
 
@@ -188,7 +211,7 @@ def dashboard(request):
 @login_required(login_url="login")
 def clients_page(request):
     """Страница клиентов (только admin/manager)."""
-    if request.user.role not in ("admin", "manager"):
+    if request.user.role not in ("admin", "manager", "cashier"):
         return redirect("dashboard")
     _close_expired_rentals()
 
@@ -363,7 +386,7 @@ def equipment_page(request):
 @login_required(login_url="login")
 def rentals_page(request):
     """Страница аренды (только admin/manager)."""
-    if request.user.role not in ("admin", "manager"):
+    if request.user.role not in ("admin", "manager", "cashier"):
         return redirect("dashboard")
     _close_expired_rentals()
 
@@ -386,12 +409,70 @@ def rentals_page(request):
             rental.delete()
             messages.success(request, "Аренда удалена.")
             return redirect("rentals")
+
         if action == "create":
             client_id = request.POST.get("client_id", "").strip()
-            equipment_ids = request.POST.getlist("equipment_ids")
             days_raw = request.POST.get("days", "1").strip()
             start_date_raw = request.POST.get("start_date", "").strip()
             status = request.POST.get("status", "draft").strip()
+
+            item_rows = request.POST.getlist("item_rows")
+            items_data = []
+            for row_id in item_rows:
+                eq_id = request.POST.get(f"eq_id_{row_id}", "").strip()
+                eq_size = request.POST.get(f"eq_size_{row_id}", "").strip()
+                eq_qty_raw = request.POST.get(f"eq_qty_{row_id}", "1").strip()
+                if eq_id:
+                    try:
+                        eq_qty = max(1, int(eq_qty_raw))
+                    except ValueError:
+                        eq_qty = 1
+                    items_data.append({"eq_id": eq_id, "size": eq_size, "qty": eq_qty})
+            
+            if not client_id or not items_data:
+                error = "Выберите клиента и добавьте хотя бы одну позицию снаряжения."
+            else:
+                client = get_object_or_404(Client, pk=client_id)
+
+                if start_date_raw:
+                    try:
+                        start_d = date.fromisoformat(start_date_raw)
+                    except ValueError:
+                        error = "Некорректная дата начала."
+                else: start_d = date.today()
+
+                if error is None:
+                    eq_ids = [it["eq_id"] for it in items_data]
+                    equipment_map = {
+                        str(e.pk): e
+                        for e in Equipment.objects.filter(pk__in=eq_ids)
+                    }
+                    if not equipment_map:
+                        error = "Выбранные позиции снаряжения не найдены."
+
+                if error is None:
+                    end_d = dtart_d + timedelta(days=days - 1)
+                    rental = Rental.objects.create(
+                        client=client,
+                        status=status if status in dict(Rental.STATUS_CHOICES) else "draft",
+                        start_date=start_d,
+                        end_date=end_d,
+                    )
+                    for it in items_data:
+                        equipment = equipment_map.get(it["eq_id"])
+                        if  equipment:
+                            RentalItem.objects.create(
+                                rental=rental,
+                                equipment=equipment,
+                                price_per_day=equipment.price_per_day,
+                                days=days,
+                                size=it["size"],
+                                quantity=it["qty"],
+                            )
+                    rental.total_price = rental.calculate_total_price()
+                    rental.save(update_fields=["total_price"])
+                    messages.success(request, "Аренда добавлена.")
+                    return redirect("rentals")
 
             if not client_id or not equipment_ids:
                 error = "Выберите клиента и снаряжение."
@@ -518,43 +599,152 @@ def payments_page(request):
 
 @login_required(login_url="login")
 def payment_create_page(request):
-    if request.user.role not in ("admin", "manager", "cashier"):
+    """
+    GET  → показывает форму
+    POST → получает данные, создаёт Payment в базе
+    """
+    # Кассир и админ создают платежи; менеджер — только просмотр
+    if request.user.role not in ("admin", "cashier"):
         return redirect("dashboard")
+
+    # Словарь разрешённых методов:
+    # ключ   — что придёт из HTML (скрытое поле methodInput)
+    # значение — что запишется в базу данных
+    # Это серверная валидация — защита от подделки запроса
+    ALLOWED_METHODS = {
+        "kaspi": "Kaspi Bank",
+        "halyk": "Halyk Bank",
+        "cash":  "Наличные",
+    }
+
     error = None
+
     if request.method == "POST":
-        rental_id = request.POST.get("rental_id", "").strip()
+        rental_id      = request.POST.get("rental_id", "").strip()
         payment_method = request.POST.get("payment_method", "").strip()
-        amount_raw = request.POST.get("amount", "").strip()
+        amount_raw     = request.POST.get("amount", "").strip()
+
+        # Валидация 1: все поля заполнены?
         if not rental_id or not payment_method or not amount_raw:
             error = "Заполните обязательные поля: договор, метод оплаты и сумма."
+
+        # Валидация 2: метод из разрешённого списка?
+        elif payment_method not in ALLOWED_METHODS:
+            error = "Выберите корректный метод оплаты."
+
         else:
             try:
+                # Decimal точнее float для денег (нет ошибок округления)
                 amount = Decimal(amount_raw)
             except (ValueError, InvalidOperation):
                 error = "Некорректная сумма."
             else:
+                # get_object_or_404 — вернёт 404 если договор не найден
                 rental = get_object_or_404(Rental, pk=rental_id)
                 rental.total_price = rental.calculate_total_price()
                 rental.save(update_fields=["total_price"])
+
                 Payment.objects.create(
                     rental=rental,
                     amount=amount,
-                    payment_method=payment_method,
+                    payment_method=ALLOWED_METHODS[payment_method],  # "Kaspi Bank" / "Halyk Bank" / "Наличные"
                     status="paid",
                 )
                 messages.success(request, "Платёж добавлен.")
                 return redirect("payments")
+
+    # Передаём в шаблон через context — доступны как {{ rentals_for_select }} и т.д.
     context = {
-        "user": request.user,
-        "role": request.user.role,
-        "is_admin": request.user.role == "admin",
+        "user":       request.user,
+        "role":       request.user.role,
+        "is_admin":   request.user.role == "admin",
         "is_manager": request.user.role in ("admin", "manager"),
         "is_cashier": request.user.role in ("admin", "manager", "cashier"),
-        "rentals_for_select": Rental.objects.filter(client__isnull=False).select_related("client").order_by("-created_at"),
+        # select_related("client") — загружает клиента одним SQL-запросом (оптимизация)
+        "rentals_for_select": Rental.objects.filter(
+            client__isnull=False
+        ).select_related("client").order_by("-created_at"),
         "error": error,
     }
     return render(request, "forms/payment_form.html", context)
 
+@login_required(login_url="login")
+def payment_refund_page(request, payment_id):
+    """
+    Страница возврата средств по конкретному платежу.
+    payment_id — ID платежа из URL (/payments/42/refund/)
+    
+    GET  → показывает форму возврата с данными платежа
+    POST → создаёт новый Payment со статусом "refund"
+    """
+    # Только менеджер и админ могут делать возвраты
+    if request.user.role != "admin":
+        return redirect("dashboard")
+
+    # Получаем оригинальный платёж — если не найден, вернёт 404
+    original_payment = get_object_or_404(Payment, pk=payment_id)
+
+    # Нельзя делать возврат на возврат
+    if original_payment.status == "refund":
+        messages.error(request, "Нельзя сделать возврат на уже возвращённый платёж.")
+        return redirect("payments")
+
+    # Считаем уже возвращённую сумму по этому платежу
+    # Может быть несколько частичных возвратов — суммируем их
+    already_refunded = Payment.objects.filter(
+        rental=original_payment.rental,
+        status="refund",
+        # related_payment — смотри поле ниже, пока просто фильтруем по аренде
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+    # Максимум к возврату = оплачено - уже возвращено
+    max_refund = original_payment.amount + already_refunded  # already_refunded отрицательное
+    
+    error = None
+
+    if request.method == "POST":
+        refund_amount_raw    = request.POST.get("refund_amount", "").strip()
+        refund_method        = request.POST.get("refund_method", "").strip()
+        refund_reason        = request.POST.get("refund_reason", "").strip()
+
+        if not refund_amount_raw or not refund_method:
+            error = "Укажите сумму и способ возврата."
+        else:
+            try:
+                refund_amount = Decimal(refund_amount_raw)
+            except (ValueError, InvalidOperation):
+                error = "Некорректная сумма."
+            else:
+                if refund_amount <= 0:
+                    error = "Сумма возврата должна быть больше нуля."
+                elif refund_amount > max_refund:
+                    error = f"Сумма возврата не может превышать {max_refund} ₸."
+                else:
+                    # Создаём платёж-возврат
+                    # amount отрицательный — чтобы при подсчёте баланса он вычитался
+                    Payment.objects.create(
+                        rental=original_payment.rental,
+                        amount=-refund_amount,          # ОТРИЦАТЕЛЬНАЯ СУММА
+                        payment_method=refund_method,
+                        status="refund",
+                        change_amount=Decimal("0"),
+                    )
+                    messages.success(
+                        request,
+                        f"Возврат {refund_amount} ₸ выполнен успешно."
+                    )
+                    return redirect("payments")
+
+    context = {
+        "user":             request.user,
+        "role":             request.user.role,
+        "is_admin":         request.user.role == "admin",
+        "is_manager":       request.user.role in ("admin", "manager"),
+        "original_payment": original_payment,
+        "max_refund":       max_refund,
+        "error":            error,
+    }
+    return render(request, "forms/refund_form.html", context)
 
 @login_required(login_url="login")
 def rental_edit_page(request, rental_id):
@@ -592,7 +782,7 @@ def rental_edit_page(request, rental_id):
 
 @login_required(login_url="login")
 def client_create_page(request):
-    if request.user.role not in ("admin", "manager"):
+    if request.user.role not in ("admin", "manager", "cashier"):
         return redirect("dashboard")
     error = None
     edit_id = request.GET.get("edit")
@@ -621,38 +811,95 @@ def client_create_page(request):
 
 @login_required(login_url="login")
 def rental_create_page(request):
-    if request.user.role not in ("admin", "manager"):
+    if request.user.role not in ("admin", "manager", "cashier"):
         return redirect("dashboard")
     error = None
     clients = Client.objects.order_by("-created_at")
     equipments = Equipment.objects.order_by("name")
+
     if request.method == "POST":
-        client_id = request.POST.get("client_id", "").strip()
-        equipment_ids = request.POST.getlist("equipment_ids")
-        days_raw = request.POST.get("days", "1").strip()
+        client_id      = request.POST.get("client_id", "").strip()
+        days_raw       = request.POST.get("days", "1").strip()
         start_date_raw = request.POST.get("start_date", "").strip()
-        status = request.POST.get("status", "draft").strip()
-        if not client_id or not equipment_ids:
-            error = "Выберите клиента и снаряжение."
+        status         = request.POST.get("status", "draft").strip()
+
+        # Собираем строки снаряжения из динамических полей eq_id_1, eq_id_2 ...
+        item_rows = request.POST.getlist("item_rows")  # маркеры строк из JS
+
+        items = []
+        for n in item_rows:
+            eq_id  = request.POST.get(f"eq_id_{n}", "").strip()
+            qty    = request.POST.get(f"eq_qty_{n}", "1").strip()
+            size   = request.POST.get(f"eq_size_{n}", "").strip()
+            if eq_id:
+                items.append({"eq_id": eq_id, "qty": int(qty) if qty.isdigit() else 1, "size": size})
+
+        if not client_id:
+            error = "Выберите клиента."
+        elif not items:
+            error = "Добавьте хотя бы одно снаряжение."
         else:
             try:
                 days = int(days_raw)
+                if days < 1:
+                    raise ValueError
             except ValueError:
                 error = "Дней должно быть целое число >= 1."
             else:
-                client = get_object_or_404(Client, pk=client_id)
-                equipment_qs = Equipment.objects.filter(pk__in=equipment_ids)
+                client  = get_object_or_404(Client, pk=client_id)
                 start_d = date.fromisoformat(start_date_raw) if start_date_raw else date.today()
-                end_d = start_d + timedelta(days=max(days, 1) - 1)
-                rental = Rental.objects.create(client=client, status=status if status in dict(Rental.STATUS_CHOICES) else "draft", start_date=start_d, end_date=end_d)
-                for equipment in equipment_qs:
-                    RentalItem.objects.create(rental=rental, equipment=equipment, price_per_day=equipment.price_per_day, days=max(days, 1))
+                end_d   = start_d + timedelta(days=max(days, 1) - 1)
+
+                rental = Rental.objects.create(
+                    client=client,
+                    status=status if status in dict(Rental.STATUS_CHOICES) else "draft",
+                    start_date=start_d,
+                    end_date=end_d,
+                )
+
+                for item in items:
+                    equipment = get_object_or_404(Equipment, pk=item["eq_id"])
+                    RentalItem.objects.create(
+                        rental=rental,
+                        equipment=equipment,
+                        price_per_day=equipment.price_per_day,
+                        days=max(days, 1),
+                        quantity=item["qty"],
+                        size=item["size"] or None,
+                    )
+
                 rental.total_price = rental.calculate_total_price()
                 rental.save(update_fields=["total_price"])
                 messages.success(request, "Аренда добавлена.")
                 return redirect("rentals")
-    return render(request, "forms/rental_form.html", {"user": request.user, "role": request.user.role, "is_admin": request.user.role == "admin", "is_manager": request.user.role in ("admin", "manager"), "is_cashier": request.user.role in ("admin", "manager", "cashier"), "clients": clients, "equipments": equipments, "error": error})
 
+
+                client = get_object_or_404(Client, pk=client_id)
+                equipment_qs = Equipment.objects.filter(pk__in=equipment_ids)
+                start_d = date.fromisoformat(start_date_raw) if start_date_raw else date.today()
+                end_d = start_d + timedelta(days=max(days, 1) - 1)
+
+                discount_id = request.POST.get("discount_id", "").strip()
+
+                rental = Rental.objects.create(
+                    client=client,
+                    status=status if status in dict(Rental.STATUS_CHOICES) else "draft",
+                    start_date=start_d,
+                    end_date=end_d,
+                    discount=Discount.objects.filter(pk=discount_id).first() if discount_id else None,
+                )
+
+    return render(request, "forms/rental_form.html", {
+        "user":       request.user,
+        "role":       request.user.role,
+        "is_admin":   request.user.role == "admin",
+        "is_manager": request.user.role in ("admin", "manager"),
+        "is_cashier": request.user.role in ("admin", "manager", "cashier"),
+        "clients":    clients,
+        "equipments": equipments,
+        "error":      error,
+        "discounts": Discount.objects.order_by("min_days"),
+    })
 
 @login_required(login_url="login")
 def equipment_create_page(request):
@@ -773,7 +1020,7 @@ def contract_create_web(request, rental_id):
     Создаёт договор для аренды (если ещё нет) и редиректит на страницу договора.
     URL: /contracts/create/<rental_id>/
     """
-    if request.user.role not in ('admin', 'manager'):
+    if request.user.role not in ('admin', 'manager', 'cashier'):
         return redirect('dashboard')
 
     rental = get_object_or_404(Rental.objects.select_related('client'), pk=rental_id)
@@ -793,6 +1040,7 @@ def contract_create_web(request, rental_id):
             status='sent',
         )
 
+    # Все роли → страница договора для немедленного подписания
     return redirect('contract_detail', contract_id=contract.id)
 
 
@@ -802,7 +1050,7 @@ def contract_detail_page(request, contract_id):
     Страница договора с подписанием через ЭЦП (карт-ридер) или SMS.
     URL: /contracts/<contract_id>/
     """
-    if request.user.role not in ('admin', 'manager'):
+    if request.user.role not in ('admin', 'manager', 'cashier'):
         return redirect('dashboard')
 
     contract = get_object_or_404(
@@ -822,4 +1070,605 @@ def contract_detail_page(request, contract_id):
         'client':     contract.client,
         'signatures': signatures,
     }
-    return render(request, 'contract_detail.html', context)    
+    return render(request, 'contract_detail.html', context)
+
+
+# ─────────────────────────────────────────
+#  ANALYTICS
+# ─────────────────────────────────────────
+import json
+import csv
+import io as _io
+from datetime import date, timedelta
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.http import require_POST
+
+@login_required(login_url='login')
+def analytics_view(request):
+    """Страница аналитики с дашбордами и экспортом."""
+    if request.user.role not in ('admin', 'manager'):
+        return redirect('dashboard')
+
+    from django.db.models.functions import TruncMonth
+    from django.db.models import Sum, Count, F
+    import json
+
+    today = timezone.now()
+    year_start = today.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+    # Revenue by month (current year)
+    revenue_qs = (
+        Payment.objects
+        .filter(status='paid', created_at__gte=year_start)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    )
+    month_names_ru = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+    rev_map = {r['month'].month: float(r['total']) for r in revenue_qs}
+    revenue_labels = json.dumps(month_names_ru)
+    revenue_data = json.dumps([rev_map.get(m, 0) for m in range(1, 13)])
+
+    # Rentals by month
+    rentals_qs = (
+        Rental.objects
+        .filter(created_at__gte=year_start)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(cnt=Count('id'))
+        .order_by('month')
+    )
+    rent_map = {r['month'].month: r['cnt'] for r in rentals_qs}
+    rentals_by_month = json.dumps([rent_map.get(m, 0) for m in range(1, 13)])
+
+    # Rental status distribution
+    status_qs = Rental.objects.values('status').annotate(cnt=Count('id'))
+    status_label_map = {'draft':'Черновик','open':'Открыт','booked':'Забронирован',
+                        'rented':'Арендован','completed':'Завершён','canceled':'Отменён'}
+    status_labels = json.dumps([status_label_map.get(s['status'], s['status']) for s in status_qs])
+    status_data = json.dumps([s['cnt'] for s in status_qs])
+
+    # Payment methods
+    pm_qs = Payment.objects.values('payment_method').annotate(cnt=Count('id'))
+    pm_label_map = {'cash':'Наличные','card':'Карта','transfer':'Перевод'}
+    pm_labels = json.dumps([pm_label_map.get(p['payment_method'], p['payment_method']) for p in pm_qs])
+    pm_data = json.dumps([p['cnt'] for p in pm_qs])
+
+    # Top equipment
+    from rentals.models import RentalItem
+    top_equipment = (
+        RentalItem.objects
+        .values('equipment__name', 'equipment__type__name')
+        .annotate(cnt=Count('id'), revenue=Sum(F('price_per_day') * F('days')))
+        .order_by('-cnt')[:10]
+    )
+
+    # KPI
+    total_income_month = (
+        Payment.objects.filter(status='paid', created_at__gte=month_start, created_at__lt=next_month)
+        .aggregate(total=Sum('amount'))['total'] or 0
+    )
+    total_rentals = Rental.objects.count()
+    active_rentals = Rental.objects.filter(status__in=['open','booked','rented']).count()
+    total_clients = Client.objects.count()
+    total_payments = Payment.objects.count()
+    total_equipment = Equipment.objects.count()
+
+    # Birthday today
+    td = date.today()
+    birthday_clients = Client.objects.filter(birth_date__day=td.day, birth_date__month=td.month)
+    birthday_today = birthday_clients.count()
+
+    # Payments journal (last 200)
+    payments_journal = Payment.objects.select_related('rental__client').order_by('-created_at')[:200]
+
+    context = {
+        'user': request.user,
+        'role': request.user.role,
+        'is_admin': request.user.role == 'admin',
+        'is_manager': request.user.role in ('admin', 'manager'),
+        'is_cashier': True,
+        'revenue_labels': revenue_labels,
+        'revenue_data': revenue_data,
+        'rentals_by_month': rentals_by_month,
+        'status_labels': status_labels,
+        'status_data': status_data,
+        'pm_labels': pm_labels,
+        'pm_data': pm_data,
+        'top_equipment': top_equipment,
+        'total_income_month': total_income_month,
+        'total_rentals': total_rentals,
+        'active_rentals': active_rentals,
+        'total_clients': total_clients,
+        'total_payments': total_payments,
+        'total_equipment': total_equipment,
+        'birthday_today': birthday_today,
+        'birthday_clients': birthday_clients,
+        'payments_journal': payments_journal,
+    }
+    return render(request, 'analytics.html', context)
+
+
+@login_required(login_url='login')
+def analytics_export(request):
+    """Экспорт отчётов в Excel или CSV."""
+    if request.user.role not in ('admin', 'manager'):
+        return redirect('dashboard')
+
+    fmt = request.GET.get('format', 'csv')
+    report = request.GET.get('report', 'payments')
+
+    if report == 'inventory':
+        from equipment.models import Equipment, EquipmentType
+        headers = ['Категория','Наименование','Размер','Статус','Всего','В аренде','Доступно','Загрузка %','Цена/день']
+        rows = []
+        for eq in Equipment.objects.select_related('type').prefetch_related('sizes').order_by('type__name','name'):
+            sizes = list(eq.sizes.all())
+            if sizes:
+                for sz in sizes:
+                    avail = sz.quantity - sz.quantity_rented
+                    load = round(sz.quantity_rented / sz.quantity * 100) if sz.quantity else 0
+                    rows.append([eq.type.name, eq.name, sz.size,
+                                 dict(Equipment.STATUS_CHOICES).get(eq.status, eq.status),
+                                 sz.quantity, sz.quantity_rented, avail, f'{load}%', str(eq.price_per_day)])
+            else:
+                avail = eq.quantity - eq.quantity_rented
+                load = round(eq.quantity_rented / eq.quantity * 100) if eq.quantity else 0
+                rows.append([eq.type.name, eq.name, eq.size or '—',
+                             dict(Equipment.STATUS_CHOICES).get(eq.status, eq.status),
+                             eq.quantity, eq.quantity_rented, avail, f'{load}%', str(eq.price_per_day)])
+        filename = 'warehouse_report'
+    elif report == 'payments':
+        qs = Payment.objects.select_related('rental__client').order_by('-created_at')
+        headers = ['ID', 'Дата', 'Клиент', 'Договор', 'Сумма', 'Метод', 'Статус']
+        rows = [
+            [p.id, p.created_at.strftime('%d.%m.%Y %H:%M'),
+             p.rental.client.full_name if p.rental.client else '',
+             p.rental.contract_number, str(p.amount), p.payment_method, p.status]
+            for p in qs
+        ]
+        filename = 'payments'
+
+    elif report == 'rentals':
+        qs = Rental.objects.select_related('client').order_by('-created_at')
+        headers = ['ID','Договор','Клиент','Начало','Конец','Статус','Сумма']
+        rows = [
+            [r.id, r.contract_number, r.client.full_name if r.client else '',
+             str(r.start_date or ''), str(r.end_date or ''), r.status, str(r.total_price)]
+            for r in qs
+        ]
+        filename = 'rentals'
+
+    else:  # full
+        filename = 'full_report'
+        headers = ['Тип', 'ID', 'Дата', 'Клиент', 'Описание', 'Сумма', 'Статус']
+        rows = []
+        for r in Rental.objects.select_related('client').order_by('-created_at'):
+            rows.append(['Аренда', r.id, str(r.created_at.date()),
+                         r.client.full_name if r.client else '', r.contract_number, str(r.total_price), r.status])
+        for p in Payment.objects.select_related('rental__client').order_by('-created_at'):
+            rows.append(['Платёж', p.id, str(p.created_at.date()),
+                         p.rental.client.full_name if p.rental.client else '',
+                         p.payment_method, str(p.amount), p.status])
+
+    if fmt == 'excel':
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = filename[:31]
+            # Header row
+            for col, h in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=h)
+                cell.font = Font(bold=True, color='FFFFFF')
+                cell.fill = PatternFill(start_color='1c2130', end_color='1c2130', fill_type='solid')
+                cell.alignment = Alignment(horizontal='center')
+            for row_i, row in enumerate(rows, 2):
+                for col_i, val in enumerate(row, 1):
+                    ws.cell(row=row_i, column=col_i, value=val)
+            for col in ws.columns:
+                ws.column_dimensions[col[0].column_letter].width = max(len(str(col[0].value or '')), 12) + 4
+            buf = _io.BytesIO()
+            wb.save(buf)
+            buf.seek(0)
+            resp = HttpResponse(buf.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            resp['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+            return resp
+        except ImportError:
+            pass  # Fall back to CSV if openpyxl not installed
+
+    # CSV fallback
+    resp = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    resp['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+    writer = csv.writer(resp)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return resp
+
+
+# ─────────────────────────────────────────
+#  AI CHAT ENDPOINT
+# ─────────────────────────────────────────
+@login_required(login_url='login')
+@require_POST
+def ai_chat_view(request):
+    """ИИ-ассистент Решид для обучения персонала."""
+    import json as _json
+    try:
+        body = _json.loads(request.body)
+        user_message = body.get('message', '').strip()
+        history = body.get('history', [])
+        if not user_message:
+            return JsonResponse({'reply': 'Пожалуйста, введите сообщение.'})
+
+        import urllib.request
+        import urllib.error
+        from django.conf import settings as dj_settings
+        from web.models import AppSettings
+
+        # Key priority: DB → settings.py → environment variable
+        api_key = (
+            AppSettings.get('ANTHROPIC_API_KEY')
+            or getattr(dj_settings, 'ANTHROPIC_API_KEY', '')
+            or __import__('os').environ.get('ANTHROPIC_API_KEY', '')
+        )
+
+        if not api_key:
+            return JsonResponse({
+                'reply': '⚠️ API-ключ Anthropic не настроен. '
+                         'Перейдите в **Настройки → ИИ-ассистент** и введите ключ. '
+                         'Получить ключ можно на console.anthropic.com',
+                'no_key': True,
+            })
+
+        system_prompt = """Ты — Решид, умный ИИ-ассистент горнолыжного проката Ski Rent. 
+Ты помогаешь сотрудникам (кассирам, менеджерам, администраторам) в работе с CRM-системой.
+
+Отвечай ТОЛЬКО на русском языке. Отвечай кратко, чётко и по делу.
+
+Что ты знаешь о системе Ski Rent CRM:
+- Роли: admin (полный доступ), manager (аренды/клиенты/оборудование), cashier (аренды/платежи)
+- Статусы аренды: draft (черновик) → open (открыт) → booked (забронирован) → rented (в аренде) → completed (завершён) / canceled (отменён)
+- Договор создаётся из страницы аренды. Подписание: SMS OTP или ЭЦП через NCALayer. После подписания PDF договора отправляется на почту клиенту.
+- Платежи: создаются на странице "Платежи" или из аренды. Методы: cash (наличные), card (карта), transfer (перевод).
+- Клиенты: добавляются с ФИО, телефоном, email, ИИН и датой рождения. Именинники получают поздравление на почту.
+- Аналитика: страница /analytics/ доступна admin и manager — содержит графики по доходам, арендам, платежам. Есть экспорт в Excel и CSV.
+- Скидки и модификаторы цены настраиваются в дашборде (только admin).
+- ИИ-ассистент (Решид) доступен в правом нижнем углу на всех страницах.
+
+Если вопрос не по работе, вежливо объясни, что ты специализируешься на помощи по Ski Rent CRM."""
+
+        messages_payload = []
+        for h in history[-8:]:
+            if h.get('role') in ('user', 'assistant'):
+                messages_payload.append({'role': h['role'], 'content': h['content']})
+        messages_payload.append({'role': 'user', 'content': user_message})
+
+        req_data = _json.dumps({
+            'model': 'claude-haiku-4-5-20251001',
+            'max_tokens': 600,
+            'system': system_prompt,
+            'messages': messages_payload,
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            'https://api.anthropic.com/v1/messages',
+            data=req_data,
+            headers={
+                'Content-Type': 'application/json',
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+            },
+            method='POST',
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            result = _json.loads(resp.read().decode('utf-8'))
+        reply = result.get('content', [{}])[0].get('text', 'Нет ответа.')
+        return JsonResponse({'reply': reply})
+
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode('utf-8', errors='replace')
+        return JsonResponse({'reply': f'Ошибка API: {e.code}. Проверьте настройки ANTHROPIC_API_KEY.'})
+    except Exception as exc:
+        return JsonResponse({'reply': f'Ошибка: {exc}'}, status=500)
+
+
+# ─────────────────────────────────────────
+#  BIRTHDAY EMAIL TRIGGER (web)
+# ─────────────────────────────────────────
+@login_required(login_url='login')
+@require_POST
+def send_birthday_emails_view(request):
+    """Отправляет поздравительные письма именинникам (вызывается из UI)."""
+    if request.user.role not in ('admin', 'manager'):
+        return redirect('dashboard')
+    try:
+        from django.core.management import call_command
+        from io import StringIO
+        out = StringIO()
+        call_command('send_birthday_emails', '--discount=15', stdout=out)
+        messages.success(request, f'Поздравления отправлены! {out.getvalue()}')
+    except Exception as exc:
+        messages.error(request, f'Ошибка при отправке: {exc}')
+    return redirect('analytics')
+
+
+# ─────────────────────────────────────────
+#  CONTRACT PDF DOWNLOAD
+# ─────────────────────────────────────────
+@login_required(login_url='login')
+def contract_pdf_download(request, contract_id):
+    """Скачать PDF договора."""
+    if request.user.role not in ('admin', 'manager', 'cashier'):
+        return redirect('dashboard')
+    from rentals.models import Contract as ContractModel
+    contract = get_object_or_404(ContractModel.objects.select_related('client', 'rental'), pk=contract_id)
+    try:
+        from rentals.pdf_utils import generate_contract_pdf
+        pdf_bytes = generate_contract_pdf(contract)
+        resp = HttpResponse(pdf_bytes, content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename="contract_{contract.rental.contract_number}.pdf"'
+        return resp
+    except Exception as exc:
+        messages.error(request, f'Ошибка генерации PDF: {exc}')
+        return redirect('contract_detail', contract_id=contract_id)
+
+
+def send_contract_pdf_email(contract):
+    """Вспомогательная функция: отправить PDF договора на email клиента."""
+    try:
+        from rentals.pdf_utils import generate_contract_pdf
+        from django.core.mail import EmailMultiAlternatives
+        from django.conf import settings as dj_settings
+
+        if not contract.client.email:
+            return False
+
+        pdf_bytes = generate_contract_pdf(contract)
+        subject = f'Договор аренды № {contract.rental.contract_number} — Ski Rent'
+        body = (
+            f'Уважаемый(ая) {contract.client.full_name},\n\n'
+            f'Ваш договор аренды № {contract.rental.contract_number} подписан.\n'
+            f'PDF-копия договора прикреплена к этому письму.\n\n'
+            f'С уважением,\nКоманда Ski Rent'
+        )
+        msg = EmailMultiAlternatives(
+            subject=subject, body=body,
+            from_email=dj_settings.DEFAULT_FROM_EMAIL,
+            to=[contract.client.email],
+        )
+        msg.attach(
+            f'contract_{contract.rental.contract_number}.pdf',
+            pdf_bytes, 'application/pdf',
+        )
+        msg.send(fail_silently=True)
+        return True
+    except Exception:
+        return False
+
+
+# ─────────────────────────────────────────
+#  APP SETTINGS PAGE (API ключи и настройки)
+# ─────────────────────────────────────────
+@login_required(login_url='login')
+def app_settings_view(request):
+    """Страница настроек приложения — только для admin."""
+    if request.user.role != 'admin':
+        return redirect('dashboard')
+
+    from web.models import AppSettings
+    import os
+
+    msg_ok = msg_err = None
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        if action == 'save_anthropic_key':
+            key = request.POST.get('anthropic_key', '').strip()
+            if key:
+                AppSettings.set(
+                    'ANTHROPIC_API_KEY', key,
+                    note='Ключ Anthropic API для ИИ-ассистента Решид'
+                )
+                msg_ok = 'API-ключ Anthropic сохранён. ИИ-ассистент готов к работе!'
+            else:
+                AppSettings.set('ANTHROPIC_API_KEY', '')
+                msg_ok = 'API-ключ очищен.'
+
+        elif action == 'test_anthropic_key':
+            import urllib.request, urllib.error, json as _json
+            api_key = (
+                AppSettings.get('ANTHROPIC_API_KEY')
+                or getattr(__import__('django.conf', fromlist=['settings']).settings, 'ANTHROPIC_API_KEY', '')
+            )
+            if not api_key:
+                msg_err = 'API-ключ не задан.'
+            else:
+                try:
+                    req_data = _json.dumps({
+                        'model': 'claude-haiku-4-5-20251001',
+                        'max_tokens': 20,
+                        'messages': [{'role': 'user', 'content': 'ping'}],
+                    }).encode()
+                    req = urllib.request.Request(
+                        'https://api.anthropic.com/v1/messages',
+                        data=req_data,
+                        headers={
+                            'Content-Type': 'application/json',
+                            'x-api-key': api_key,
+                            'anthropic-version': '2023-06-01',
+                        },
+                        method='POST',
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        _json.loads(resp.read())
+                    msg_ok = '✅ Подключение к Anthropic API успешно! ИИ-ассистент работает.'
+                except urllib.error.HTTPError as e:
+                    msg_err = f'❌ Ошибка {e.code}: неверный ключ или нет доступа.'
+                except Exception as ex:
+                    msg_err = f'❌ Ошибка соединения: {ex}'
+
+    # Current stored key (masked)
+    stored_key = AppSettings.get('ANTHROPIC_API_KEY', '')
+    masked_key = ''
+    if stored_key:
+        masked_key = stored_key[:12] + '•' * max(0, len(stored_key) - 16) + stored_key[-4:] if len(stored_key) > 16 else '•' * len(stored_key)
+
+    context = {
+        'user': request.user,
+        'role': request.user.role,
+        'is_admin': True,
+        'is_manager': True,
+        'is_cashier': True,
+        'msg_ok': msg_ok,
+        'msg_err': msg_err,
+        'has_anthropic_key': bool(stored_key),
+        'masked_key': masked_key,
+    }
+    return render(request, 'app_settings.html', context)
+
+
+# ─────────────────────────────────────────
+#  ВЕДОМОСТЬ СКЛАДА
+# ─────────────────────────────────────────
+@login_required(login_url='login')
+def warehouse_view(request):
+    """Ведомость остатков снаряжения по категориям."""
+    if request.user.role not in ('admin', 'manager'):
+        return redirect('dashboard')
+
+    from django.db.models import Sum, Count
+    from equipment.models import Equipment, EquipmentType, EquipmentSize
+
+    # Build grouped data
+    types = EquipmentType.objects.prefetch_related(
+        'equipment__sizes'
+    ).order_by('name')
+
+    report = []
+    grand_total = grand_rented = grand_avail = 0
+
+    for eq_type in types:
+        items = []
+        cat_total = cat_rented = cat_avail = 0
+
+        for eq in eq_type.equipment.all().order_by('name'):
+            sizes = list(eq.sizes.all().order_by('size'))
+            if sizes:
+                for sz in sizes:
+                    avail = sz.quantity - sz.quantity_rented
+                    load_pct = round(sz.quantity_rented / sz.quantity * 100) if sz.quantity else 0
+                    items.append({
+                        'name': eq.name,
+                        'size': sz.size,
+                        'status': eq.status,
+                        'total': sz.quantity,
+                        'rented': sz.quantity_rented,
+                        'available': avail,
+                        'load_pct': load_pct,
+                        'price': eq.price_per_day,
+                    })
+                    cat_total  += sz.quantity
+                    cat_rented += sz.quantity_rented
+                    cat_avail  += avail
+            else:
+                avail = eq.quantity - eq.quantity_rented
+                load_pct = round(eq.quantity_rented / eq.quantity * 100) if eq.quantity else 0
+                items.append({
+                    'name': eq.name,
+                    'size': eq.size or '—',
+                    'status': eq.status,
+                    'total': eq.quantity,
+                    'rented': eq.quantity_rented,
+                    'available': avail,
+                    'load_pct': load_pct,
+                    'price': eq.price_per_day,
+                })
+                cat_total  += eq.quantity
+                cat_rented += eq.quantity_rented
+                cat_avail  += avail
+
+        if items:
+            report.append({
+                'type': eq_type.name,
+                'items': items,
+                'cat_total': cat_total,
+                'cat_rented': cat_rented,
+                'cat_avail': cat_avail,
+                'positions': len(items),
+            })
+            grand_total  += cat_total
+            grand_rented += cat_rented
+            grand_avail  += cat_avail
+
+    context = {
+        'user': request.user,
+        'role': request.user.role,
+        'is_admin':   request.user.role == 'admin',
+        'is_manager': request.user.role in ('admin', 'manager'),
+        'is_cashier': request.user.role in ('admin', 'manager', 'cashier'),
+        'report':       report,
+        'grand_total':  grand_total,
+        'grand_rented': grand_rented,
+        'grand_avail':  grand_avail,
+        'grand_load': round(grand_rented / grand_total * 100) if grand_total else 0,
+    }
+    return render(request, 'warehouse.html', context)
+
+
+# ─────────────────────────────────────────
+#  ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+# ─────────────────────────────────────────
+@login_required(login_url='login')
+def profile_view(request):
+    """Страница редактирования своего профиля — для всех ролей."""
+    msg_ok = msg_err = None
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        if action == 'update_profile':
+            first_name = request.POST.get('first_name', '').strip()
+            last_name  = request.POST.get('last_name', '').strip()
+            email      = request.POST.get('email', '').strip()
+            if not first_name and not last_name:
+                msg_err = 'Введите хотя бы имя или фамилию.'
+            else:
+                request.user.first_name = first_name
+                request.user.last_name  = last_name
+                request.user.email      = email
+                request.user.save(update_fields=['first_name', 'last_name', 'email'])
+                msg_ok = 'Профиль успешно обновлён!'
+
+        elif action == 'change_password':
+            from django.contrib.auth import update_session_auth_hash
+            current  = request.POST.get('current_password', '')
+            new_pw   = request.POST.get('new_password', '')
+            confirm  = request.POST.get('confirm_password', '')
+            if not request.user.check_password(current):
+                msg_err = 'Неверный текущий пароль.'
+            elif len(new_pw) < 6:
+                msg_err = 'Новый пароль должен быть не менее 6 символов.'
+            elif new_pw != confirm:
+                msg_err = 'Пароли не совпадают.'
+            else:
+                request.user.set_password(new_pw)
+                request.user.save()
+                update_session_auth_hash(request, request.user)
+                msg_ok = 'Пароль успешно изменён!'
+
+    context = {
+        'user':       request.user,
+        'role':       request.user.role,
+        'is_admin':   request.user.role == 'admin',
+        'is_manager': request.user.role in ('admin', 'manager'),
+        'is_cashier': request.user.role in ('admin', 'manager', 'cashier'),
+        'msg_ok':  msg_ok,
+        'msg_err': msg_err,
+    }
+    return render(request, 'profile.html', context)

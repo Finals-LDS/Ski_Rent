@@ -167,13 +167,30 @@ class ContractSmsSendView(APIView):
                 )
 
             try:
-                send_mail(
-                    subject=f"Ski Rent: код подписания договора #{contract_id}",
-                    message=otp_text_email,
-                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                    recipient_list=[email],
-                    fail_silently=False,
+                from django.core.mail import EmailMultiAlternatives
+                # Тело письма — текст договора + OTP-код
+                full_message = (
+                    f"Предварительная версия договора аренды:\n\n"
+                    f"{contract.text}\n\n"
+                    f"{'='*60}\n"
+                    f"{otp_text_email}"
                 )
+                html_body = (
+                    f"<pre style='font-family:monospace;font-size:13px;white-space:pre-wrap'>"
+                    f"{contract.text}</pre>"
+                    f"<hr>"
+                    f"<p><strong>Код подтверждения для подписания договора #{contract_id}: "
+                    f"<span style='font-size:24px;color:#4facfe'>{code}</span></strong></p>"
+                    f"<p style='color:#888'>Срок действия: 2 минуты. Никому не сообщайте этот код.</p>"
+                )
+                msg = EmailMultiAlternatives(
+                    subject=f"Ski Rent: договор #{contract_id} — предпросмотр и код подписания",
+                    body=full_message,
+                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                    to=[email],
+                )
+                msg.attach_alternative(html_body, "text/html")
+                msg.send(fail_silently=False)
             except Exception as exc:
                 logger.warning("Не удалось отправить OTP на email %s: %s", email, exc)
                 cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))
@@ -239,6 +256,13 @@ class ContractSmsVerifyView(APIView):
         contract.accepted_at = now
         contract.signature_data = raw_sig
         contract.save()
+
+        # ── Отправка PDF договора на email клиента ─────────────────────────────
+        try:
+            from web.views import send_contract_pdf_email
+            send_contract_pdf_email(contract)
+        except Exception as pdf_exc:
+            logger.warning("Не удалось отправить PDF договора: %s", pdf_exc)
 
         # ── SMS-подтверждение о подписании договора ───────────────────────────
         phone = contract.client.phone
@@ -445,6 +469,13 @@ class SignCardView(APIView):
         contract.accepted_at    = now
         contract.signature_data = raw_sig
         contract.save(update_fields=['status', 'accepted_at', 'signature_data'])
+
+        # ── Отправка PDF договора на email клиента ─────────────────────────────
+        try:
+            from web.views import send_contract_pdf_email
+            send_contract_pdf_email(contract)
+        except Exception as pdf_exc:
+            logger.warning("Не удалось отправить PDF договора (ЭЦП): %s", pdf_exc)
 
         return Response({
             'ok':        True,

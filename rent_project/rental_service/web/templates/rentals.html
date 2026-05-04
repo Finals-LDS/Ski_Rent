@@ -5,6 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Аренды — Ski Rent CRM</title>
   <style>
+    /* ── Fixed layout ─────────────────────── */
+    html, body { height: 100%; overflow-x: hidden; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; z-index: 200;
+      overflow-y: auto; overflow-x: hidden;
+    }
+    .main, .content, main {
+      margin-left: 240px;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+    .nav-section {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-muted, rgba(230,237,243,0.4));
+      padding: 10px 10px 5px;
+    }
+    .nav a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 8px;
+      color: var(--text-muted, rgba(230,237,243,0.5));
+      text-decoration: none; font-size: 14px;
+      transition: background 0.15s, color 0.15s; margin-bottom: 2px;
+    }
+    .nav a:hover, .nav a.active {
+      background: rgba(79,172,254,0.12);
+      color: var(--accent, #4facfe);
+    }
+    .nav a svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+    .sidebar-footer, .sb-foot {
+      padding: 14px; border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #0e1117;
@@ -149,38 +184,55 @@
       </div>
     </div>
     <nav class="nav">
-      <div class="nav-section">Основное</div>
-      <a href="{% url 'dashboard' %}">
-        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <div class="nav-section">Главная</div>
+      <a href="{% url 'dashboard' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M13 3V9H21V3M13 21H21V11H13M3 21H11V15H3M3 13H11V3H3V13Z"/></svg>
         Дашборд
       </a>
-      {% if is_manager %}
-        <div class="nav-section">Операции</div>
-        <a href="{% url 'clients' %}">
-          <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-          Клиенты
-        </a>
-        <a href="{% url 'equipment' %}">
-          <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg>
-          Снаряжение
-        </a>
-        <a href="{% url 'rentals' %}" class="active">
-          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
-          Аренды
-        </a>
-      {% endif %}
-      <a href="{% url 'payments' %}">
-        <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+      {% if is_cashier %}
+      <div class="nav-section">Операции</div>
+      <a href="{% url 'clients' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M16 11C17.66 11 18.99 9.66 18.99 8C18.99 6.34 17.66 5 16 5C14.34 5 13 6.34 13 8C13 9.66 14.34 11 16 11M8 11C9.66 11 10.99 9.66 10.99 8C10.99 6.34 9.66 5 8 5C6.34 5 5 6.34 5 8C5 9.66 6.34 11 8 11M8 13C5.67 13 1 14.17 1 16.5V19H15V16.5C15 14.17 10.33 13 8 13M16 13C15.71 13 15.38 13.02 15.03 13.05C16.19 13.89 17 15.02 17 16.5V19H23V16.5C23 14.17 18.33 13 16 13Z"/></svg>
+        Клиенты
+      </a>
+      <a href="{% url 'rentals' %}" class="active">
+        <svg viewBox="0 0 24 24"><path d="M5,4H19A2,2 0 0,1 21,6V18A2,2 0 0,1 19,20H5A2,2 0 0,1 3,18V6A2,2 0 0,1 5,4M5,8V18H19V8H5M5,6V8H19V6H5M10,10H14V12H10V10M10,14H14V16H10V14Z"/></svg>
+        Аренды
+      </a>
+      <a href="{% url 'payments' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4C2.89 4 2.01 4.89 2.01 6L2 18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V6C22 4.89 21.11 4 20 4M20 18H4V12H20V18M20 8H4V6H20V8Z"/></svg>
         Платежи
       </a>
-      {% if is_admin %}
-        <div class="nav-section">Управление</div>
-        <a href="{% url 'users' %}">
-          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
-          Пользователи
-        </a>
       {% endif %}
-    </nav>
+      {% if is_manager %}
+      <div class="nav-section">Управление</div>
+      <a href="{% url 'equipment' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M11,2A2,2 0 0,1 13,4V8A2,2 0 0,1 11,10H9V12H13V14H9V22H7V14H3V12H7V10H5A2,2 0 0,1 3,8V4A2,2 0 0,1 5,2H11M5,8H11V4H5V8M20,22H18V18H16V16H18V14H16V12H18V8H16V6H18V4H20V6H22V8H20V12H22V14H20V16H22V18H20V22Z"/></svg>
+        Снаряжение
+      </a>
+      <a href="{% url 'analytics' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M22 21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg>
+        Аналитика
+      </a>
+      {% endif %}
+      <div class="nav-section">Аккаунт</div>
+      <a href="{% url 'profile' %}">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        Мой профиль
+      </a>
+      {% if is_admin %}
+      <div class="nav-section">Администрирование</div>
+      <a href="{% url 'users' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        Пользователи
+      </a>
+      {% endif %}
+      {% if is_admin %}
+      <a href="{% url 'app_settings' %}">
+        <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.3.07-.62.07-.93s-.03-.64-.07-1l2.25-1.74c.2-.16.25-.44.12-.64l-2.12-3.68c-.13-.21-.38-.29-.6-.21l-2.64 1.06c-.56-.42-1.16-.78-1.82-1.04l-.4-2.82c-.04-.23-.25-.4-.48-.4h-4.24c-.23 0-.44.17-.48.4l-.4 2.82c-.65.26-1.25.62-1.82 1.04L4.2 5.33c-.22-.08-.47 0-.6.21L1.48 9.22c-.13.2-.08.48.12.64l2.25 1.74c-.04.36-.07.67-.07 1s.03.64.07 1l-2.25 1.74c-.2.16-.25.44-.12.64l2.12 3.68c.13.21.38.29.6.21l2.64-1.06c.56.42 1.16.78 1.82 1.04l.4 2.82c.04.23.25.4.48.4h4.24c.23 0 .44-.17.48-.4l.4-2.82c.65-.26 1.25-.62 1.82-1.04l2.64 1.06c.22.08.47 0 .6-.21l2.12-3.68c.13-.2.08-.48-.12-.64l-2.25-1.74z"/></svg>
+        Настройки
+      </a>
+      {% endif %}
     <div class="sidebar-footer">
       <div class="user-info">
         <div class="user-avatar">{{ user.username|first|upper }}</div>
@@ -285,6 +337,7 @@
             <th>
               <button class="sort-btn" onclick="sortTable('period')">Период <svg id="sort-period-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
             </th>
+            <th>Снаряжение</th>
             <th>
               <button class="sort-btn" onclick="sortTable('price')">Итого <svg id="sort-price-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
             </th>
@@ -329,7 +382,16 @@
                   {% else %}<span class="badge">{{ r.status }}</span>{% endif %}
                 {% endif %}
               </td>
+              
               <td>{% if r.start_date %}{{ r.start_date|date:"Y-m-d" }}{% else %}—{% endif %} → {% if r.end_date %}{{ r.end_date|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+              <td>
+                {% for item in r.items.all %}
+                 <span style="display:block; font-size:12px; color:var(--text-muted);">
+                  {{ item.equipment.name }}{% if item.size %} <span style="color:var(--accent);">р.{{ item.size }}</span>{% endif %}{% if item.quantity > 1 %} ×{{ item.quantity }}{% endif %}
+                 </span>
+                {% empty %}—{% endfor %}
+              </td>
+
               <td>{% if r.total_price is not None %}{{ r.total_price }}{% else %}—{% endif %}</td>
               <td class="muted">{{ r.created_at|date:"Y-m-d" }}</td>
 
@@ -592,5 +654,6 @@
       computeTotalPreview();
     });
   </script>
+{% include "ai_widget.html" %}
 </body>
 </html>

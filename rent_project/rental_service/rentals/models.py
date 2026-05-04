@@ -29,6 +29,14 @@ class Rental(models.Model):
         ('canceled', 'Отменён'),
     ]
 
+    discount = models.ForeignKey(
+        'Discount',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='rentals',
+        verbose_name='Скидка',
+    )
+
     contract_number = models.CharField(max_length=20, unique=True, blank=True)
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='rentals', null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
@@ -65,8 +73,13 @@ class Rental(models.Model):
     def calculate_total_price(self):
         total = Decimal('0.00')
         for item in self.items.all():
-            total += Decimal(item.days) * item.price_per_day
-        return total
+            total += Decimal(item.days) * item.price_per_day * Decimal(item.quantity)
+        
+        if self.discount:
+            discount_amount = total * Decimal(self.discount.percent) / Decimal('100')
+            total -= discount_amount
+
+        return total.quantize(Decimal('0.01'))
 
     def save(self, *args, **kwargs):
         if not self.contract_number:
@@ -85,20 +98,26 @@ class RentalItem(models.Model):
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE)
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
     days = models.IntegerField(default=1)
+    size = models.CharField(max_length=20, blank=True, default='', verbose_name='Размер')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='Кол-во')
 
     def get_total(self):
-        return self.price_per_day * self.days
+        return self.price_per_day * self.days * self.quantity
 
     def save(self, *args, **kwargs):
         if not self.price_per_day:
             self.price_per_day = self.equipment.price_per_day
+        if self.quantity < 1:
+            self.quantity = 1
         super().save(*args, **kwargs)
         rental = self.rental
         rental.total_price = rental.calculate_total_price()
         rental.save(update_fields=['total_price'])
 
     def __str__(self):
-        return f'{self.rental.contract_number} — {self.equipment.name}'
+        size_str = f' (p.{self.size})' if self.size else ''
+        qty_str = f' x{self.quantity}' if self.quantity > 1 else ''
+        return f'{self.rental.contract_number} — {self.equipment.name}{size_str}{qty_str}'
 
 
 class Discount(models.Model):

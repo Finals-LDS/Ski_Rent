@@ -91,21 +91,40 @@ def get_top_clients():
 
 
 def generate_contract_text(client, rental):
+    items = rental.items.select_related('equipment').all()
+    if items.exists():
+        lines = []
+        for item in items:
+            name = item.equipment.name
+            size_str = f', размер: {item.size}' if item.size else ''
+            qty_str = f', кол-во: {item.quantity}' if item.quantity > 1 else ''
+            price_total = item.price_per_day * item.days * item.quantity
+            lines.append(
+                f'  - {name}{size_str}{qty_str}, '
+                f'{item.days} дн. × {item.price_per_day} ₸ = {price_total} ₸'
+            )
+        equipment_block = '\n'.join(lines)
+    else:
+        equipment_block = '     - снаряжение не указано'
+
     return f"""
     ДОГОВОР АРЕНДЫ СНАРЯЖЕНИЯ
 
     Клиент: {client.full_name}
     Телефон: {client.phone}
+    Снаряжение: {equipment_block}
+
+    Срок аренды: {rental.start_date} - {rental.end_date}
+    Итоговая стоимость: {rental.total_price} ₸
 
     Условия:
     1. Клиент обязуется вернуть оборудование в срок.
     2. В случае повреждения - компенсация.
     3. Оплата производится заранее.
-    4. Срок аренды: {rental.start_date} - {rental.end_date}
 
     Подтверждая договор, вы соглашаетесь со всеми условиями.
-
-    [✓] Я принимаю условия
+    
+    
     """
 
 

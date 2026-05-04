@@ -158,3 +158,6 @@ if certifi is not None:
 
 # Дополнительная настройка таймаута подключения к SMTP.
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "20"))
+# AI Assistant (Решид)
+# Добавьте в .env файл: ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
