@@ -13,7 +13,7 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif;
-         display: flex; align-items: flex-start; justify-content: center;
+         display: flex; align-items: center; justify-content: center;
          min-height: 100vh; padding: 32px 16px; }
   .card { width: 100%; max-width: 980px; background: var(--surface);
           border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
@@ -118,7 +118,7 @@
     <div id="itemsContainer"></div>
 
     <button type="button" class="add-btn" onclick="addItemRow()">
-      ➕ Добавить позицию
+      + Добавить позицию
     </button>
 
     <div class="total-bar">
@@ -150,7 +150,7 @@ const EQ = {
 
 const OPTIONS_HTML = '<option value="">— снаряжение —</option>' +
   Object.entries(EQ).map(([id, e]) =>
-    `<option value="${id}">${e.name} (${parseFloat(e.price).toLocaleString('ru-RU')} ₸/д.)${e.has_sizes ? ' 📐' : ''}</option>`
+    `<option value="${id}">${e.name} (${parseFloat(e.price).toLocaleString('ru-RU')} ₸/д.)</option>`
   ).join('');
 
 let rc = 0;

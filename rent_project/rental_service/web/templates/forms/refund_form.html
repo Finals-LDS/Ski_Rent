@@ -66,18 +66,18 @@
   .quick-btn:hover { border-color: var(--orange); color: var(--orange); }
 
   .actions { display: flex; gap: 10px; margin-top: 6px; }
-  .btn { padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 500;
+  .btn { padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
          cursor: pointer; border: 1px solid; transition: all .15s; }
   .btn-refund { background: rgba(240,136,62,.12); border-color: rgba(240,136,62,.35); color: var(--orange); }
   .btn-refund:hover { background: rgba(240,136,62,.22); }
-  .btn-cancel { background: transparent; border-color: var(--border); color: var(--muted); }
-  .btn-cancel:hover { border-color: rgba(248,81,73,.4); color: var(--red); }
+  .btn-cancel { background: rgba(248,81,73,.12); border-color: rgba(248,81,73,.3); color: var(--red); text-decoration: none; display: inline-flex; align-items: center; }
+  .btn-cancel:hover { background: rgba(248,81,73,.2); }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <h2>↩ Возврат средств</h2>
+  <h2>Возврат средств</h2>
   <p class="subtitle">Договор: {{ original_payment.rental.contract_number }} — {{ original_payment.rental.client.full_name }}</p>
 
   <!-- Информация об оригинальном платеже -->
@@ -102,7 +102,7 @@
 
   <!-- Предупреждение -->
   <div class="warn">
-    ⚠ Возврат будет записан в базу. Убедитесь что деньги фактически возвращены клиенту.
+    Возврат будет записан в базу. Убедитесь что деньги фактически возвращены клиенту.
   </div>
 
   {% if error %}<div class="err">{{ error }}</div>{% endif %}
@@ -142,10 +142,8 @@
     </div>
 
     <div class="actions">
-      <button type="submit" class="btn btn-refund">↩ Оформить возврат</button>
-      <a href="{% url 'payments' %}">
-        <button type="button" class="btn btn-cancel">Отмена</button>
-      </a>
+      <button type="submit" class="btn btn-refund">Оформить возврат</button>
+      <a href="{% url 'dashboard' %}" class="btn btn-cancel">Отмена</a>
     </div>
   </form>
 </div>
