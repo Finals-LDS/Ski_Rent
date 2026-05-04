@@ -93,7 +93,16 @@
     .access-card-header span { font-size: 14px; font-weight: 600; }
     .access-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
     .access-item:last-child { border-bottom: none; }
-    .badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; }
+    .badge {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 16px;
+      height: 16px;
+      background: #3fb950;
+      border-radius: 50%;
+      border: 2px solid #0e1117;
+    }
     .badge-full { background: rgba(63,185,80,0.2); color: var(--green); }
     .badge-read { background: rgba(79,172,254,0.2); color: var(--accent); }
     .badge-none { background: rgba(230,237,243,0.07); color: var(--text-muted); }
