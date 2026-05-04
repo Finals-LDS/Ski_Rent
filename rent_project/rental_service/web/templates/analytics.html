@@ -195,7 +195,7 @@
 <main class="main">
   <div class="page-header">
     <div>
-      <h2>📊 Аналитика и отчёты</h2>
+      <h2>Аналитика и отчёты</h2>
       <p>Финансовые дашборды, журнал платежей и экспорт данных</p>
     </div>
     <div class="export-bar">
@@ -217,32 +217,32 @@
   <!-- KPI Cards -->
   <div class="stats-grid">
     <div class="stat-card">
-      <div class="stat-label">💰 Доход за месяц</div>
+      <div class="stat-label">Доход за месяц</div>
       <div class="stat-value" style="color:var(--green)">{{ total_income_month|floatformat:0 }} ₸</div>
       <div class="stat-sub">Оплачено за текущий месяц</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">📋 Всего аренд</div>
+      <div class="stat-label">Всего аренд</div>
       <div class="stat-value" style="color:var(--accent)">{{ total_rentals }}</div>
       <div class="stat-sub">Активных: {{ active_rentals }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">👥 Клиентов</div>
+      <div class="stat-label">Клиентов</div>
       <div class="stat-value" style="color:var(--purple)">{{ total_clients }}</div>
       <div class="stat-sub">Всего в базе</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">💳 Платежей</div>
+      <div class="stat-label">Платежей</div>
       <div class="stat-value" style="color:var(--yellow)">{{ total_payments }}</div>
       <div class="stat-sub">За всё время</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">📦 Снаряжения</div>
+      <div class="stat-label">Снаряжения</div>
       <div class="stat-value">{{ total_equipment }}</div>
       <div class="stat-sub">Единиц в каталоге</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">🎂 Именинники</div>
+      <div class="stat-label">Именинники</div>
       <div class="stat-value" style="color:var(--red)">{{ birthday_today }}</div>
       <div class="stat-sub">Сегодня день рождения</div>
     </div>
@@ -251,25 +251,25 @@
   <!-- Charts -->
   <div class="charts-grid">
     <div class="chart-card full">
-      <div class="chart-title">📈 Доход по месяцам (текущий год)</div>
+      <div class="chart-title">Доход по месяцам (текущий год)</div>
       <div class="chart-wrap" style="height:280px">
         <canvas id="revenueChart"></canvas>
       </div>
     </div>
     <div class="chart-card">
-      <div class="chart-title">🥧 Распределение аренд по статусам</div>
+      <div class="chart-title">Распределение аренд по статусам</div>
       <div class="chart-wrap">
         <canvas id="statusChart"></canvas>
       </div>
     </div>
     <div class="chart-card">
-      <div class="chart-title">💳 Способы оплаты</div>
+      <div class="chart-title">Способы оплаты</div>
       <div class="chart-wrap">
         <canvas id="paymentMethodChart"></canvas>
       </div>
     </div>
     <div class="chart-card full">
-      <div class="chart-title">📊 Аренды по месяцам</div>
+      <div class="chart-title">Аренды по месяцам</div>
       <div class="chart-wrap" style="height:220px">
         <canvas id="rentalsChart"></canvas>
       </div>
@@ -277,7 +277,7 @@
   </div>
 
   <!-- Payment Journal -->
-  <div class="section-title">📒 Журнал платежей</div>
+  <div class="section-title">Журнал платежей</div>
   <div class="filter-bar">
     <span class="filter-label">Период:</span>
     <select id="periodFilter" onchange="filterTable()">
@@ -293,7 +293,7 @@
       <option value="card">Карта</option>
       <option value="transfer">Перевод</option>
     </select>
-    <input type="text" id="searchFilter" placeholder="🔍 Поиск по клиенту..." oninput="filterTable()" style="width:200px">
+    <input type="text" id="searchFilter" placeholder="Поиск по клиенту..." oninput="filterTable()" style="width:200px">
   </div>
   <div class="table-wrap">
     <table id="paymentsTable">
@@ -340,7 +340,7 @@
   </div>
 
   <!-- Top Equipment -->
-  <div class="section-title">🏆 Популярное снаряжение (по числу аренд)</div>
+  <div class="section-title">Популярное снаряжение (по числу аренд)</div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -363,7 +363,7 @@
 
   <!-- Clients with birthday today -->
   {% if birthday_clients %}
-  <div class="section-title">🎂 Именинники сегодня</div>
+  <div class="section-title">Именинники сегодня</div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -372,7 +372,7 @@
       <tbody>
         {% for c in birthday_clients %}
         <tr>
-          <td style="font-weight:600">🎉 {{ c.full_name }}</td>
+          <td style="font-weight:600"> {{ c.full_name }}</td>
           <td>{{ c.phone|default:"—" }}</td>
           <td>{{ c.email|default:"—" }}</td>
           <td><span class="pill pill-red">{{ c.birth_date|date:"d.m.Y" }}</span></td>
@@ -385,7 +385,7 @@
     <form method="post" action="{% url 'send_birthday_emails' %}">
       {% csrf_token %}
       <button type="submit" style="padding:10px 20px;background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.3);color:var(--red);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">
-        🎁 Отправить поздравления именинникам
+        Отправить поздравления именинникам
       </button>
     </form>
   </div>

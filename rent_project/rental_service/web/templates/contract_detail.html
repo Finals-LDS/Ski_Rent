@@ -312,11 +312,10 @@
 
       {% if contract.is_signed %}
       <div class="signed-card">
-        <div class="s-icon">✅</div>
         <div class="s-title">Договор подписан</div>
         {% if contract.accepted_at %}<div class="s-date">{{ contract.accepted_at|date:"d.m.Y в H:i" }}</div>{% endif %}
         <div class="s-meth {% if contract.status == 'signed_card' %}sm-card{% else %}sm-sms{% endif %}">
-          {% if contract.status == 'signed_card' %}🔐 ЭЦП через карт-ридер{% else %}📱 SMS{% endif %}
+          {% if contract.status == 'signed_card' %}ЭЦП через карт-ридер{% else %}SMS{% endif %}
         </div>
       </div>
 

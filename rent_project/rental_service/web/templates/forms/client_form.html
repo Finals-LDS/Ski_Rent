@@ -26,7 +26,7 @@
 <body>
   <div class="card">
     <div class="card-title">
-      {% if client %}✏️ Редактирование клиента{% else %}➕ Новый клиент{% endif %}
+      {% if client %}Редактирование клиента{% else %} Новый клиент{% endif %}
     </div>
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
     <form method="post">
@@ -50,7 +50,7 @@
           <input name="document_id" value="{{ client.document_id|default:'' }}" placeholder="000000000000">
         </div>
       </div>
-      <div class="section-label">🎂 День рождения (для рассылки поздравлений)</div>
+      <div class="section-label"> День рождения (для рассылки поздравлений)</div>
       <div class="grid">
         <div>
           <label>Дата рождения</label>
@@ -59,7 +59,7 @@
         </div>
       </div>
       <div class="actions">
-        <button class="btn" type="submit">💾 Сохранить</button>
+        <button class="btn" type="submit"> Сохранить</button>
         <a href="{% url 'clients' %}" class="btn-danger">✕ Отмена</a>
       </div>
     </form>

@@ -178,12 +178,12 @@
 <!-- MAIN -->
 <main class="main">
   <div class="page-header">
-    <h2>⚙️ Настройки приложения</h2>
+    <h2>Настройки приложения</h2>
     <p>Управление API-ключами и интеграциями</p>
   </div>
 
   {% if msg_ok %}
-  <div class="alert alert-ok">✅ {{ msg_ok }}</div>
+  <div class="alert alert-ok">{{ msg_ok }}</div>
   {% endif %}
   {% if msg_err %}
   <div class="alert alert-err">{{ msg_err }}</div>
@@ -192,7 +192,7 @@
   <!-- ── Anthropic API Key ── -->
   <div class="settings-card">
     <div class="settings-card-title">
-      🤖 ИИ-ассистент Решид
+      ИИ-ассистент Решид
       {% if has_anthropic_key %}
         <span class="status-badge badge-ok">✓ Ключ настроен</span>
       {% else %}
@@ -224,7 +224,7 @@
         </div>
       </div>
       <div class="btn-row">
-        <button type="submit" class="btn btn-save">💾 Сохранить ключ</button>
+        <button type="submit" class="btn btn-save">Сохранить ключ</button>
       </div>
     </form>
 
@@ -232,19 +232,19 @@
     <form method="post" style="margin-top:10px;">
       {% csrf_token %}
       <input type="hidden" name="action" value="test_anthropic_key">
-      <button type="submit" class="btn btn-test">🔌 Проверить соединение</button>
+      <button type="submit" class="btn btn-test">Проверить соединение</button>
     </form>
     <form method="post" style="margin-top:8px;">
       {% csrf_token %}
       <input type="hidden" name="action" value="save_anthropic_key">
       <input type="hidden" name="anthropic_key" value="">
-      <button type="submit" class="btn btn-clear" onclick="return confirm('Удалить ключ?')">🗑 Удалить ключ</button>
+      <button type="submit" class="btn btn-clear" onclick="return confirm('Удалить ключ?')">Удалить ключ</button>
     </form>
     {% endif %}
 
     {% if not has_anthropic_key %}
     <div class="how-to">
-      <h4>📋 Как получить API-ключ</h4>
+      <h4>Как получить API-ключ</h4>
       <ol>
         <li>Откройте <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a></li>
         <li>Зарегистрируйтесь или войдите в аккаунт</li>

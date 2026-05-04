@@ -124,7 +124,7 @@
   <div class="ai-chat-messages" id="ai-messages">
     <div class="ai-msg bot">
       <div class="ai-msg-bubble">
-        Привет! 👋 Я Решид — ваш ИИ-ассистент Ski Rent. Помогу с вопросами по работе системы, оформлению аренды, работе с клиентами и договорами. Спросите что угодно!
+        Привет! Я Решид — ваш ИИ-ассистент Ski Rent. Помогу с вопросами по работе системы, оформлению аренды, работе с клиентами и договорами. Спросите что угодно!
       </div>
       <div class="ai-msg-time">Сейчас</div>
     </div>
@@ -222,7 +222,7 @@ async function sendAiMsg() {
       const div = document.createElement('div');
       div.className = 'ai-msg bot';
       div.innerHTML = `<div class="ai-msg-bubble" style="color:#d29922">
-        ⚠️ API-ключ не настроен.<br><br>
+        API-ключ не настроен.<br><br>
         <a href="/settings/" style="color:#4facfe;font-weight:600">⚙️ Открыть настройки</a> и добавить ключ Anthropic — займёт 1 минуту.
       </div><div class="ai-msg-time">${timeStr()}</div>`;
       msgs.appendChild(div);
@@ -233,7 +233,7 @@ async function sendAiMsg() {
     }
   } catch (e) {
     removeTyping();
-    addMsg('⚠️ Ошибка соединения. Проверьте интернет и попробуйте позже.', 'bot');
+    addMsg('Ошибка соединения. Проверьте интернет и попробуйте позже.', 'bot');
   } finally {
     document.getElementById('ai-chat-send').disabled = false;
     input.focus();
