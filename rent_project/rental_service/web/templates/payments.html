@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Платежи — Ski Rent CRM</title>
+  <style>
+    /* ── Fixed layout ─────────────────────── */
+    html, body { height: 100%; overflow-x: hidden; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; z-index: 200;
+      overflow-y: auto; overflow-x: hidden;
+    }
+    .main, .content, main {
+      margin-left: 240px;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+    .nav-section {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-muted, rgba(230,237,243,0.4));
+      padding: 10px 10px 5px;
+    }
+    .nav a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 8px;
+      color: var(--text-muted, rgba(230,237,243,0.5));
+      text-decoration: none; font-size: 14px;
+      transition: background 0.15s, color 0.15s; margin-bottom: 2px;
+    }
+    .nav a:hover, .nav a.active {
+      background: rgba(79,172,254,0.12);
+      color: var(--accent, #4facfe);
+    }
+    .nav a svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+    .sidebar-footer, .sb-foot {
+      padding: 14px; border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0e1117;
+      --surface: #161b22;
+      --surface2: #1c2130;
+      --border: rgba(255,255,255,0.08);
+      --text: #e6edf3;
+      --text-muted: rgba(230,237,243,0.55);
+      --accent: #4facfe;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --purple: #a371f7;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 240px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; }
+    .sidebar-brand { padding: 20px 20px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+    .brand-ico { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .brand-ico svg { width: 20px; height: 20px; fill: white; }
+    .brand-name { font-size: 15px; font-weight: 700; }
+    .brand-sub { font-size: 11px; color: var(--text-muted); }
+    .nav { padding: 16px 12px; flex: 1; }
+    .nav-section { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 8px 8px 6px; }
+    .nav a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: background 0.15s, color 0.15s; margin-bottom: 2px; }
+    .nav a:hover, .nav a.active { background: rgba(79,172,254,0.12); color: var(--accent); }
+    .nav a svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+    .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .user-info { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: var(--surface2); margin-bottom: 10px; }
+    .user-avatar { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
+    .user-name { font-size: 13px; font-weight: 600; }
+    .user-role { display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .role-admin { background: rgba(163,113,247,0.2); color: var(--purple); }
+    .role-manager { background: rgba(79,172,254,0.2); color: var(--accent); }
+    .role-cashier { background: rgba(63,185,80,0.2); color: var(--green); }
+    .btn-logout { display: flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding: 9px; background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.25); border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.15s; }
+    .btn-logout:hover { background: rgba(248,81,73,0.22); }
+    .btn-logout svg { width: 16px; height: 16px; fill: currentColor; }
+    .main { margin-left: 240px; padding: 28px 32px; min-height: 100vh; }
+    .page-header { margin-bottom: 22px; }
+    .page-header h2 { font-size: 22px; font-weight: 800; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 18px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    .stat-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .stat-icon svg { width: 20px; height: 20px; fill: white; }
+    .stat-value { font-size: 26px; font-weight: 800; }
+    .stat-label { font-size: 13px; color: var(--text-muted); }
+    .section-title { font-size: 16px; font-weight: 700; margin: 18px 0 12px; }
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    th { color: var(--text-muted); font-weight: 700; text-align: left; background: rgba(255,255,255,0.02); }
+    tr:last-child td { border-bottom: none; }
+    .muted { color: var(--text-muted); }
+    .badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(230,237,243,0.07); color: var(--text-muted); }
+
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .search-wrap { position: relative; flex: 1; min-width: 220px; }
+    .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; fill: var(--text-muted); pointer-events: none; }
+    .search-input { width: 100%; padding: 9px 12px 9px 34px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+    .search-input:focus { border-color: rgba(79,172,254,0.4); }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .filter-dropdown { position: relative; }
+    .filter-btn { display: flex; align-items: center; gap: 7px; padding: 9px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color 0.15s, color 0.15s; white-space: nowrap; user-select: none; }
+    .filter-btn:hover { border-color: rgba(79,172,254,0.35); color: var(--accent); }
+    .filter-btn.active { border-color: rgba(79,172,254,0.5); color: var(--accent); background: rgba(79,172,254,0.07); }
+    .filter-btn svg { width: 14px; height: 14px; fill: currentColor; }
+    .filter-btn .chevron { width: 12px; height: 12px; transition: transform 0.2s; }
+    .filter-btn.open .chevron { transform: rotate(180deg); }
+
+    .dropdown-panel { position: absolute; top: calc(100% + 6px); left: 0; min-width: 200px; background: #1a2032; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 200; display: none; animation: dropIn 0.15s ease; }
+    .dropdown-panel.show { display: block; }
+    @keyframes dropIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+    .dropdown-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 4px 8px 6px; }
+    .dropdown-option { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--text-muted); transition: background 0.1s, color 0.1s; }
+    .dropdown-option:hover { background: rgba(79,172,254,0.1); color: var(--text); }
+    .dropdown-option.selected { color: var(--accent); background: rgba(79,172,254,0.1); }
+    .dropdown-option .opt-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.8; flex-shrink: 0; }
+    .dropdown-divider { height: 1px; background: var(--border); margin: 6px 0; }
+    .dropdown-clear { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--text-muted); transition: color 0.1s; }
+    .dropdown-clear:hover { color: var(--red); }
+
+    .sort-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 700; padding: 0; }
+    .sort-btn:hover { color: var(--accent); }
+    .sort-btn svg { width: 13px; height: 13px; fill: currentColor; }
+
+    .no-results { padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px; }
+    .no-results svg { width: 36px; height: 36px; fill: var(--text-muted); opacity: 0.4; margin-bottom: 10px; display: block; margin-inline: auto; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-ico">
+        <svg viewBox="0 0 24 24"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2v14a6 6 0 0 0 6 6 6 6 0 0 0 6-6V2l-1.5 1.5z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Ski Rent</div>
+        <div class="brand-sub">CRM система</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Главная</div>
+      <a href="{% url 'dashboard' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M13 3V9H21V3M13 21H21V11H13M3 21H11V15H3M3 13H11V3H3V13Z"/></svg>
+        Дашборд
+      </a>
+      {% if is_cashier %}
+      <div class="nav-section">Операции</div>
+      <a href="{% url 'clients' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M16 11C17.66 11 18.99 9.66 18.99 8C18.99 6.34 17.66 5 16 5C14.34 5 13 6.34 13 8C13 9.66 14.34 11 16 11M8 11C9.66 11 10.99 9.66 10.99 8C10.99 6.34 9.66 5 8 5C6.34 5 5 6.34 5 8C5 9.66 6.34 11 8 11M8 13C5.67 13 1 14.17 1 16.5V19H15V16.5C15 14.17 10.33 13 8 13M16 13C15.71 13 15.38 13.02 15.03 13.05C16.19 13.89 17 15.02 17 16.5V19H23V16.5C23 14.17 18.33 13 16 13Z"/></svg>
+        Клиенты
+      </a>
+      <a href="{% url 'rentals' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M5,4H19A2,2 0 0,1 21,6V18A2,2 0 0,1 19,20H5A2,2 0 0,1 3,18V6A2,2 0 0,1 5,4M5,8V18H19V8H5M5,6V8H19V6H5M10,10H14V12H10V10M10,14H14V16H10V14Z"/></svg>
+        Аренды
+      </a>
+      <a href="{% url 'payments' %}" class="active">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4C2.89 4 2.01 4.89 2.01 6L2 18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V6C22 4.89 21.11 4 20 4M20 18H4V12H20V18M20 8H4V6H20V8Z"/></svg>
+        Платежи
+      </a>
+      {% endif %}
+      {% if is_manager %}
+      <div class="nav-section">Управление</div>
+      <a href="{% url 'equipment' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M11,2A2,2 0 0,1 13,4V8A2,2 0 0,1 11,10H9V12H13V14H9V22H7V14H3V12H7V10H5A2,2 0 0,1 3,8V4A2,2 0 0,1 5,2H11M5,8H11V4H5V8M20,22H18V18H16V16H18V14H16V12H18V8H16V6H18V4H20V6H22V8H20V12H22V14H20V16H22V18H20V22Z"/></svg>
+        Снаряжение
+      </a>
+      <a href="{% url 'analytics' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M22 21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg>
+        Аналитика
+      </a>
+      {% endif %}
+      {% if is_admin %}
+      <div class="nav-section">Администрирование</div>
+      <a href="{% url 'users' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        Пользователи
+      </a>
+      {% endif %}
+      {% if is_admin %}
+      <a href="{% url 'app_settings' %}">
+        <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.3.07-.62.07-.93s-.03-.64-.07-1l2.25-1.74c.2-.16.25-.44.12-.64l-2.12-3.68c-.13-.21-.38-.29-.6-.21l-2.64 1.06c-.56-.42-1.16-.78-1.82-1.04l-.4-2.82c-.04-.23-.25-.4-.48-.4h-4.24c-.23 0-.44.17-.48.4l-.4 2.82c-.65.26-1.25.62-1.82 1.04L4.2 5.33c-.22-.08-.47 0-.6.21L1.48 9.22c-.13.2-.08.48.12.64l2.25 1.74c-.04.36-.07.67-.07 1s.03.64.07 1l-2.25 1.74c-.2.16-.25.44-.12.64l2.12 3.68c.13.21.38.29.6.21l2.64-1.06c.56.42 1.16.78 1.82 1.04l.4 2.82c.04.23.25.4.48.4h4.24c.23 0 .44-.17.48-.4l.4-2.82c.65-.26 1.25-.62 1.82-1.04l2.64 1.06c.22.08.47 0 .6-.21l2.12-3.68c.13-.2.08-.48-.12-.64l-2.25-1.74z"/></svg>
+        Настройки
+      </a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">{{ user.username|first|upper }}</div>
+        <div>
+          <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+          <span class="user-role {% if role == 'admin' %}role-admin{% elif role == 'manager' %}role-manager{% else %}role-cashier{% endif %}">{{ role }}</span>
+        </div>
+      </div>
+      <a href="/logout/" class="btn-logout">
+        <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        Выйти
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header"><h2>Платежи</h2></div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#3fb950,#2da44e)"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></div>
+        <div class="stat-value">{{ total_income_month }}</div>
+        <div class="stat-label">Выручка за месяц</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#d29922,#f59e0b)"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg></div>
+        <div class="stat-value">{{ paid_in_month_count }}</div>
+        <div class="stat-label">Оплачено за месяц (шт.)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#a371f7,#8b5cf6)"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg></div>
+        <div class="stat-value">{{ payment_methods_count }}</div>
+        <div class="stat-label">Методов оплаты (за месяц)</div>
+      </div>
+    </div>
+
+    <div class="section-title">Методы оплаты (за месяц)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Метод</th><th>Кол-во</th><th>Сумма</th></tr>
+        </thead>
+        <tbody>
+          {% for m in payment_methods_breakdown %}
+            <tr><td>{{ m.payment_method }}</td><td>{{ m.count }}</td><td>{{ m.total }}</td></tr>
+          {% empty %}
+            <tr><td colspan="3" class="muted">Пока нет оплаченных платежей за месяц</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Последние платежи</div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input type="text" class="search-input" id="paySearch" placeholder="Поиск по договору или клиенту…">
+      </div>
+
+      <div class="filter-dropdown">
+        <div class="filter-btn" id="methodFilterBtn" onclick="toggleDropdown('methodDropdown', this)">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          Метод оплаты
+          <svg class="chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="dropdown-panel" id="methodDropdown">
+          <div class="dropdown-label">Метод оплаты</div>
+          <div id="methodOptions"></div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-clear" onclick="clearFilter('method', 'methodFilterBtn')">✕ Сбросить</div>
+        </div>
+      </div>
+
+      <div class="filter-dropdown">
+        <div class="filter-btn" id="statusFilterBtn" onclick="toggleDropdown('statusDropdown', this)">
+          <svg viewBox="0 0 24 24"><path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 18.95 4H5.04a1 1 0 0 0-.79 1.61z"/></svg>
+          Статус
+          <svg class="chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="dropdown-panel" id="statusDropdown">
+          <div class="dropdown-label">Статус платежа</div>
+          <div class="dropdown-option" data-filter="status" data-value="paid" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--green)"></span> Оплачен</div>
+          <div class="dropdown-option" data-filter="status" data-value="pending" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--yellow)"></span> Ожидает</div>
+          <div class="dropdown-option" data-filter="status" data-value="failed" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--red)"></span> Ошибка</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-clear" onclick="clearFilter('status', 'statusFilterBtn')">✕ Сбросить</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>
+              <button class="sort-btn" onclick="sortTable('contract')">Договор <svg id="sort-contract-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('client')">Клиент <svg id="sort-client-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>Итого договора</th>
+            <th>Метод</th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('amount')">Сумма платежа <svg id="sort-amount-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>Статус</th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('date')">Создан <svg id="sort-date-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            {% if is_manager %}<th></th>{% endif %}
+            </th>
+          </tr>
+        </thead>
+        <tbody id="paymentsBody">
+          {% for p in payments %}
+            <tr class="payment-row"
+              data-contract="{{ p.rental.contract_number|lower }}"
+              data-client="{{ p.rental.client.full_name|default:''|lower }}"
+              data-method="{{ p.payment_method|lower }}"
+              data-status="{{ p.status }}"
+              data-amount="{{ p.amount }}"
+              data-date="{{ p.created_at|date:'Y-m-d' }}">
+              <td>{{ p.rental.contract_number }}</td>
+              <td>{{ p.rental.client.full_name|default:"—" }}</td>
+              <td>{% if p.rental.total_price is not None %}{{ p.rental.total_price }}{% else %}—{% endif %}</td>
+              <td>{{ p.payment_method }}</td>
+              <td>{{ p.amount }}</td>
+              <td>
+                {% if p.status == "paid" %}
+                  <span class="badge" style="background:rgba(63,185,80,0.2);color:var(--green);">PAID</span>
+                {% elif p.status == "refund" %}
+                  <span class="badge" style="background:rgba(248,81,73,0.15);color:var(--red);">REFUND</span>
+                {% else %}
+                  <span class="badge">{{ p.status }}</span>
+                {% endif %}
+              </td>
+              <td class="muted">{{ p.created_at|date:"Y-m-d" }}</td>
+              {% if is_admin %}
+              <td>
+                {% if p.status == "paid" and not p.has_refund %}
+                  <a href="{% url 'payment_refund' p.id %}" style="text-decoration:none;">
+                    <button style="padding:5px 13px;border-radius:8px;border:1px solid rgba(240,136,62,.35);background:rgba(240,136,62,.1);color:#f0883e;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='rgba(240,136,62,.22)'" onmouseout="this.style.background='rgba(240,136,62,.1)'">↩ Возврат</button>
+                  </a>
+                {% elif p.status == "refund" %}
+                  <span style="font-size:11px;font-weight:700;color:#f85149;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.2);border-radius:20px;padding:3px 10px;text-transform:uppercase;letter-spacing:.5px;">Возврат</span>
+                {% endif %}
+              </td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="muted">Платежей пока нет</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="no-results" id="noResults" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        Ничего не найдено по вашему запросу
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let activeFilters = { method: null, status: null };
+    let sortState = { col: null, dir: 1 };
+
+    document.getElementById('paySearch').addEventListener('input', applyAll);
+
+    function buildMethodOptions() {
+      const rows = document.querySelectorAll('.payment-row');
+      const methods = new Set();
+      rows.forEach(r => { if (r.dataset.method) methods.add(r.dataset.method); });
+      const container = document.getElementById('methodOptions');
+      container.innerHTML = '';
+      methods.forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'dropdown-option';
+        el.dataset.filter = 'method';
+        el.dataset.value = m;
+        el.innerHTML = `<span class="opt-dot" style="color:var(--accent)"></span> ${m}`;
+        el.onclick = () => selectFilter(el);
+        container.appendChild(el);
+      });
+    }
+
+    function toggleDropdown(id, btn) {
+      const panel = document.getElementById(id);
+      const isOpen = panel.classList.contains('show');
+      document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
+      if (!isOpen) { panel.classList.add('show'); btn.classList.add('open'); }
+    }
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.filter-dropdown')) {
+        document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
+      }
+    });
+
+    function selectFilter(el) {
+      const filter = el.dataset.filter;
+      const value = el.dataset.value;
+      document.querySelectorAll(`[data-filter="${filter}"]`).forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      activeFilters[filter] = value;
+      const btnId = filter === 'method' ? 'methodFilterBtn' : 'statusFilterBtn';
+      document.getElementById(btnId).classList.add('active');
+      applyAll();
+    }
+
+    function clearFilter(filter, btnId) {
+      activeFilters[filter] = null;
+      document.querySelectorAll(`[data-filter="${filter}"]`).forEach(o => o.classList.remove('selected'));
+      document.getElementById(btnId).classList.remove('active');
+      applyAll();
+    }
+
+    function applyAll() {
+      const q = document.getElementById('paySearch').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('.payment-row');
+      let visible = 0;
+      rows.forEach(row => {
+        let show = true;
+        if (q && !row.dataset.contract.includes(q) && !row.dataset.client.includes(q)) show = false;
+        if (activeFilters.method && row.dataset.method !== activeFilters.method) show = false;
+        if (activeFilters.status && row.dataset.status !== activeFilters.status) show = false;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      document.getElementById('visibleCount').textContent = visible;
+      document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    function sortTable(col) {
+      if (sortState.col === col) sortState.dir *= -1;
+      else { sortState.col = col; sortState.dir = 1; }
+      ['contract','client','amount','date'].forEach(c => {
+        const ico = document.getElementById(`sort-${c}-ico`);
+        if (ico) ico.style.opacity = c === col ? '1' : '0.4';
+      });
+      const tbody = document.getElementById('paymentsBody');
+      const rows = Array.from(tbody.querySelectorAll('.payment-row'));
+      rows.sort((a, b) => {
+        if (col === 'contract') return a.dataset.contract.localeCompare(b.dataset.contract) * sortState.dir;
+        if (col === 'client') return a.dataset.client.localeCompare(b.dataset.client) * sortState.dir;
+        if (col === 'date') return a.dataset.date.localeCompare(b.dataset.date) * sortState.dir;
+        if (col === 'amount') return ((parseFloat(a.dataset.amount)||0) - (parseFloat(b.dataset.amount)||0)) * sortState.dir;
+        return 0;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+      applyAll();
+    }
+
+    buildMethodOptions();
+    applyAll();
+  </script>
+{% include "ai_widget.html" %}
+</body>
+</html>
