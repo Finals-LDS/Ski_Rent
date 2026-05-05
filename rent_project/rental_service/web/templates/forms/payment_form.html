@@ -221,15 +221,15 @@
     <label>Метод оплаты *</label>
     <div class="method-grid">
       <div class="method-btn" id="btn-kaspi" onclick="selectMethod('kaspi')">
-        <span class="icon"></span>
+        <span class="icon">🏦</span>
         <span>Kaspi Bank</span>
       </div>
       <div class="method-btn" id="btn-halyk" onclick="selectMethod('halyk')">
-        <span class="icon"></span>
+        <span class="icon">💳</span>
         <span>Halyk Bank</span>
       </div>
       <div class="method-btn" id="btn-cash" onclick="selectMethod('cash')">
-        <span class="icon"></span>
+        <span class="icon">💵</span>
         <span>Наличные</span>
       </div>
     </div>
@@ -259,7 +259,6 @@
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
     <div class="modal-header">
-      <span class="star"></span>
       <span id="modalTitle">Оплата</span>  <!-- JS меняет текст -->
     </div>
 
@@ -276,7 +275,7 @@
 
       <!-- JS меняет класс (badge-card/badge-cash), иконку и текст -->
       <div id="modalBadge" class="badge badge-card">
-        <span id="modalBadgeIcon"></span>
+        <span id="modalBadgeIcon">🏦</span>
         <span id="modalBadgeText">Kaspi Bank</span>
       </div>
 
@@ -341,9 +340,9 @@
 
   // Словарь методов — ключ совпадает с тем что уходит в POST
   const METHODS = {
-    kaspi: { label: 'Kaspi Bank', icon: '', badge: 'badge-card', title: 'Оплата через Kaspi Bank', cash: false },
-    halyk: { label: 'Halyk Bank', icon: '', badge: 'badge-card', title: 'Оплата через Halyk Bank', cash: false },
-    cash:  { label: 'Наличные',   icon: '', badge: 'badge-cash', title: 'Оплата наличными',        cash: true  },
+    kaspi: { label: 'Kaspi Bank', icon: '🏦', badge: 'badge-card', title: 'Оплата через Kaspi Bank', cash: false },
+    halyk: { label: 'Halyk Bank', icon: '💳', badge: 'badge-card', title: 'Оплата через Halyk Bank', cash: false },
+    cash:  { label: 'Наличные',   icon: '💵', badge: 'badge-cash', title: 'Оплата наличными',        cash: true  },
   };
 
   // Вызывается при клике на кнопку метода

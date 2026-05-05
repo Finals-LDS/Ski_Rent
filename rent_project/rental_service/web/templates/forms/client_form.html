@@ -14,9 +14,12 @@
     input:focus, select:focus { border-color: rgba(79,172,254,.4); }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
     .full { grid-column: 1 / -1; }
-    .btn {padding: 11px 20px; border-radius: 10px; background: rgba(79,172,254,.12); border: 1px solid rgba(79,172,254,.3); color: #4facfe; cursor: pointer; font-size: 13px; font-weight: 600; }
-    .btn:hover { background: rgba(79,172,254,.22); }
-    .btn-danger { background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.3); color: #f85149; border-radius: 10px; padding: 11px 20px; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn { padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid; transition: all .15s; }
+    .btn-primary { background: rgba(79,172,254,.12); border-color: rgba(79,172,254,.35); color: #4facfe; }
+    .btn-primary:hover { background: rgba(79,172,254,.2); }
+    .btn-danger  { background: rgba(248,81,73,.1);   border-color: rgba(248,81,73,.3);   color: #f85149; }
+    .btn-danger:hover  { background: rgba(248,81,73,.2); }
+    a { text-decoration: none; color: #e6edf3; }
     .err { color: #f85149; margin-bottom: 14px; font-size: 13px; background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.2); border-radius: 8px; padding: 10px 14px; }
     .actions { display: flex; gap: 10px; margin-top: 20px; }
     .birthday-note { font-size: 11px; color: rgba(230,237,243,0.4); margin-top: 4px; }
@@ -59,8 +62,8 @@
         </div>
       </div>
       <div class="actions">
-        <button class="btn" type="submit"> Сохранить</button>
-        <a href="{% url 'clients' %}" class="btn-danger">✕ Отмена</a>
+        <button class="btn btn-primary" type="submit">Сохранить</button>
+        <a href="{% url 'dashboard' %}"><button class="btn btn-danger" type="button">Отмена</button></a>
       </div>
     </form>
   </div>

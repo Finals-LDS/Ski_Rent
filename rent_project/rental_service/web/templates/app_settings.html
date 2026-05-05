@@ -37,11 +37,13 @@
     .brand-sub { font-size: 11px; color: var(--text-muted); }
     .sidebar-footer { padding: 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
     .user-info { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: var(--surface2); margin-bottom: 10px; }
-    .user-avatar { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; }
+    .user-avatar { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
     .user-name { font-size: 13px; font-weight: 600; }
-    .user-role { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; }
+    .user-role { display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
     .role-admin { background: rgba(163,113,247,0.2); color: var(--purple); }
-    .btn-logout { display: flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding: 9px; background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.25); border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 500; text-decoration: none; }
+    .role-manager { background: rgba(79,172,254,0.2); color: var(--accent); }
+    .role-cashier { background: rgba(63,185,80,0.2); color: var(--green); }
+   .btn-logout { display: flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding: 9px; background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.25); border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 500; text-decoration: none; }
     .btn-logout:hover { background: rgba(248,81,73,0.22); }
     .btn-logout svg { width: 16px; height: 16px; fill: currentColor; }
 
@@ -162,7 +164,7 @@
 
   <div class="sidebar-footer">
     <div class="user-info">
-      <div class="user-avatar">{{ user.first_name|first|upper }}{{ user.last_name|first|upper }}</div>
+      <div class="user-avatar">{{ user.username|first|upper }}</div>
       <div>
         <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
         <span class="user-role role-{{ role }}">{{ role }}</span>
