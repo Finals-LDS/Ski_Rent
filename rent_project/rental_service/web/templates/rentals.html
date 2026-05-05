@@ -93,16 +93,7 @@
     th { color: var(--text-muted); font-weight: 700; text-align: left; background: rgba(255,255,255,0.02); }
     tr:last-child td { border-bottom: none; }
     .muted { color: var(--text-muted); }
-    .badge {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 16px;
-      height: 16px;
-      background: #3fb950;
-      border-radius: 50%;
-      border: 2px solid #0e1117;
-    }
+    .badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(230,237,243,0.07); color: var(--text-muted); }
     .inline-form { display: inline-flex; gap: 8px; align-items: center; }
     .icon-btn { border: none; background: transparent; cursor: pointer; color: var(--red); }
     .icon-btn svg { width: 17px; height: 17px; fill: currentColor; }
@@ -350,7 +341,7 @@
               <button class="sort-btn" onclick="sortTable('date')">Создан <svg id="sort-date-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
             </th>
             <th>Договор</th>
-            {% if is_admin %}<th>Действия</th>{% endif %}
+            {% if is_admin or is_manager %}<th>Действия</th>{% endif %}
           </tr>
         </thead>
         <tbody id="rentalsBody">
@@ -441,12 +432,13 @@
                 {% endwith %}
               </td>
 
-              {% if is_admin %}
+              {% if is_admin or is_manager %}
               <td>
                 <a href="{% url 'rental_edit' r.id %}" style="text-decoration:none; margin:10px;" class="icon-edit" title="Редактировать">
                   <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                 </a>
-              
+
+                {% if is_admin %}
                 <form method="post" action="{% url 'rentals' %}" style="display:inline;">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="delete">
@@ -455,6 +447,7 @@
                     <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                   </button>
                 </form>
+                {% endif %}
               </td>
               {% endif %}
             </tr>

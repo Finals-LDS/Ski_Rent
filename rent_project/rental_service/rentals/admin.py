@@ -1,8 +1,7 @@
 from django.contrib import admin
-from .models import (
-    Rental, RentalItem, Discount, PriceModifier,
-    Payment, Contract, Signature,
+from .models import (Rental, RentalItem, Discount, PriceModifier, Contract, Signature,
 )
+from payments.models import Payment
 
 
 @admin.register(Rental)

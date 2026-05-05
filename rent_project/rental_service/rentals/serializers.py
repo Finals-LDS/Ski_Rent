@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Rental, RentalItem, Payment
+from .models import Rental, RentalItem
+from payments.models import Payment
 
 
 class RentalItemSerializer(serializers.ModelSerializer):

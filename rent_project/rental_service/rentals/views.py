@@ -7,7 +7,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from equipment.models import Equipment, EquipmentType
-from rentals.models import Rental, Discount, PriceModifier, Payment
+from rentals.models import Rental, Discount, PriceModifier
+from payments.models import Payment
 from .serializers import RentalSerializer, PaymentSerializer
 from .models import Contract, Signature, Rental
 from .services import (

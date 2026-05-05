@@ -13,7 +13,7 @@ from clients.models import Client
 from equipment.models import Equipment, EquipmentType
 from rentals.models import (Rental, RentalItem, Discount, PriceModifier, Contract)
 from rentals.services import generate_contract_text
-from payments.models import Payment
+from payments.models import (Payment, RefundTransaction)
 
 
 
@@ -418,102 +418,78 @@ def rentals_page(request):
 
             item_rows = request.POST.getlist("item_rows")
             items_data = []
+
             for row_id in item_rows:
                 eq_id = request.POST.get(f"eq_id_{row_id}", "").strip()
                 eq_size = request.POST.get(f"eq_size_{row_id}", "").strip()
                 eq_qty_raw = request.POST.get(f"eq_qty_{row_id}", "1").strip()
+
                 if eq_id:
                     try:
                         eq_qty = max(1, int(eq_qty_raw))
                     except ValueError:
                         eq_qty = 1
-                    items_data.append({"eq_id": eq_id, "size": eq_size, "qty": eq_qty})
-            
+
+                    items_data.append({
+                        "eq_id": eq_id,
+                        "size": eq_size,
+                        "qty": eq_qty
+                    })
+
             if not client_id or not items_data:
-                error = "Выберите клиента и добавьте хотя бы одну позицию снаряжения."
-            else:
-                client = get_object_or_404(Client, pk=client_id)
-
-                if start_date_raw:
-                    try:
-                        start_d = date.fromisoformat(start_date_raw)
-                    except ValueError:
-                        error = "Некорректная дата начала."
-                else: start_d = date.today()
-
-                if error is None:
-                    eq_ids = [it["eq_id"] for it in items_data]
-                    equipment_map = {
-                        str(e.pk): e
-                        for e in Equipment.objects.filter(pk__in=eq_ids)
-                    }
-                    if not equipment_map:
-                        error = "Выбранные позиции снаряжения не найдены."
-
-                if error is None:
-                    end_d = dtart_d + timedelta(days=days - 1)
-                    rental = Rental.objects.create(
-                        client=client,
-                        status=status if status in dict(Rental.STATUS_CHOICES) else "draft",
-                        start_date=start_d,
-                        end_date=end_d,
-                    )
-                    for it in items_data:
-                        equipment = equipment_map.get(it["eq_id"])
-                        if  equipment:
-                            RentalItem.objects.create(
-                                rental=rental,
-                                equipment=equipment,
-                                price_per_day=equipment.price_per_day,
-                                days=days,
-                                size=it["size"],
-                                quantity=it["qty"],
-                            )
-                    rental.total_price = rental.calculate_total_price()
-                    rental.save(update_fields=["total_price"])
-                    messages.success(request, "Аренда добавлена.")
-                    return redirect("rentals")
-
-            if not client_id or not equipment_ids:
-                error = "Выберите клиента и снаряжение."
+                error = "Выберите клиента и добавьте хотя бы одно снаряжение."
             else:
                 try:
                     days = int(days_raw)
                     if days < 1:
-                        raise ValueError("days")
+                        raise ValueError()
                 except ValueError:
-                    error = "Дней должно быть целое число >= 1."
+                    error = "Дней должно быть целым числом >= 1."
                 else:
                     client = get_object_or_404(Client, pk=client_id)
-                    equipment_qs = Equipment.objects.filter(pk__in=equipment_ids)
-                    if not equipment_qs.exists():
-                        error = "Выбранные товары не найдены."
 
-                    if start_date_raw:
-                        try:
-                            start_d = date.fromisoformat(start_date_raw)
-                        except ValueError:
-                            error = "Некорректная дата начала."
-                    else:
-                        start_d = date.today()
+                    try:
+                        start_d = date.fromisoformat(start_date_raw) if start_date_raw else date.today()
+                    except ValueError:
+                        error = "Некорректная дата начала."
+                        start_d = None
+
+                    if error is None:
+                        eq_ids = [i["eq_id"] for i in items_data]
+                        equipment_map = {
+                            str(e.pk): e for e in Equipment.objects.filter(pk__in=eq_ids)
+                        }
+
+                        if not equipment_map:
+                            error = "Выбранное снаряжение не найдено."
 
                     if error is None:
                         end_d = start_d + timedelta(days=days - 1)
+                        discount_id = request.POST.get("discount_id", "").strip()
+
                         rental = Rental.objects.create(
                             client=client,
                             status=status if status in dict(Rental.STATUS_CHOICES) else "draft",
                             start_date=start_d,
                             end_date=end_d,
+                            discount=Discount.objects.filter(pk=discount_id).first() if discount_id else None,
                         )
-                        for equipment in equipment_qs:
-                            RentalItem.objects.create(
-                                rental=rental,
-                                equipment=equipment,
-                                price_per_day=equipment.price_per_day,
-                                days=days,
-                            )
+
+                        for item in items_data:
+                            equipment = equipment_map.get(item["eq_id"])
+                            if equipment:
+                                RentalItem.objects.create(
+                                    rental=rental,
+                                    equipment=equipment,
+                                    price_per_day=equipment.price_per_day,
+                                    days=days,
+                                    size=item["size"] or None,
+                                    quantity=item["qty"],
+                                )
+
                         rental.total_price = rental.calculate_total_price()
                         rental.save(update_fields=["total_price"])
+
                         messages.success(request, "Аренда добавлена.")
                         return redirect("rentals")
 
@@ -575,10 +551,47 @@ def payments_page(request):
     )
     payment_methods_count = payment_methods_breakdown.count()
 
-    payments = (
+    # Группируем платежи по аренде, чтобы не дублировать paid + refund строки
+    raw_payments = (
         Payment.objects.select_related("rental__client")
+        .exclude(status="refunded")
         .order_by("-created_at")
     )
+
+    grouped = {}
+    for p in raw_payments:
+        rid = p.rental_id
+        if rid not in grouped:
+            grouped[rid] = {
+                "rental": p.rental,
+                "client": p.rental.client,
+                "net_amount": Decimal("0"),
+                "last_method": p.payment_method,
+                "last_status": p.status,
+                "last_date": p.created_at,
+                "last_payment_id": p.id if p.id else None,
+                "items": [],
+            }
+
+        from payments.models import RefundTransaction
+
+        refunded = RefundTransaction.objects.filter(
+            payment=p
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+        grouped[rid]["net_amount"] += (p.amount - refunded)
+        grouped[rid]["items"].append(p)
+        
+        if not grouped[rid]["last_payment_id"]:
+            grouped[rid]["last_payment_id"] = p.id
+
+        if p.created_at > grouped[rid]["last_date"]:
+            grouped[rid]["last_method"] = p.payment_method
+            grouped[rid]["last_status"] = p.status
+            grouped[rid]["last_date"] = p.created_at
+            grouped[rid]["last_payment_id"] = p.id
+
+    payments = list(grouped.values())
 
     error = None
     context = {
@@ -678,7 +691,7 @@ def payment_refund_page(request, payment_id):
     POST → создаёт новый Payment со статусом "refund"
     """
     # Только менеджер и админ могут делать возвраты
-    if request.user.role != "admin":
+    if request.user.role not in ("admin", "manager"):
         return redirect("dashboard")
 
     # Получаем оригинальный платёж — если не найден, вернёт 404
@@ -691,14 +704,13 @@ def payment_refund_page(request, payment_id):
 
     # Считаем уже возвращённую сумму по этому платежу
     # Может быть несколько частичных возвратов — суммируем их
-    already_refunded = Payment.objects.filter(
-        rental=original_payment.rental,
-        status="refund",
-        # related_payment — смотри поле ниже, пока просто фильтруем по аренде
+    from payments.models import RefundTransaction
+
+    already_refunded = RefundTransaction.objects.filter(
+        payment=original_payment
     ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
 
-    # Максимум к возврату = оплачено - уже возвращено
-    max_refund = original_payment.amount + already_refunded  # already_refunded отрицательное
+    max_refund = original_payment.amount - already_refunded
     
     error = None
 
@@ -722,12 +734,18 @@ def payment_refund_page(request, payment_id):
                 else:
                     # Создаём платёж-возврат
                     # amount отрицательный — чтобы при подсчёте баланса он вычитался
-                    Payment.objects.create(
+                    refund_payment = Payment.objects.create(
                         rental=original_payment.rental,
-                        amount=-refund_amount,          # ОТРИЦАТЕЛЬНАЯ СУММА
+                        amount=-refund_amount,
                         payment_method=refund_method,
                         status="refund",
                         change_amount=Decimal("0"),
+                    )
+
+                    RefundTransaction.objects.create(
+                        payment=original_payment,
+                        amount=refund_amount,
+                        reason=refund_reason or "",
                     )
                     messages.success(
                         request,
@@ -849,12 +867,14 @@ def rental_create_page(request):
                 client  = get_object_or_404(Client, pk=client_id)
                 start_d = date.fromisoformat(start_date_raw) if start_date_raw else date.today()
                 end_d   = start_d + timedelta(days=max(days, 1) - 1)
+                discount_id = request.POST.get("discount_id", "").strip()
 
                 rental = Rental.objects.create(
                     client=client,
                     status=status if status in dict(Rental.STATUS_CHOICES) else "draft",
                     start_date=start_d,
                     end_date=end_d,
+                    discount=Discount.objects.filter(pk=discount_id).first() if discount_id else None,
                 )
 
                 for item in items:
@@ -872,22 +892,6 @@ def rental_create_page(request):
                 rental.save(update_fields=["total_price"])
                 messages.success(request, "Аренда добавлена.")
                 return redirect("rentals")
-
-
-                client = get_object_or_404(Client, pk=client_id)
-                equipment_qs = Equipment.objects.filter(pk__in=equipment_ids)
-                start_d = date.fromisoformat(start_date_raw) if start_date_raw else date.today()
-                end_d = start_d + timedelta(days=max(days, 1) - 1)
-
-                discount_id = request.POST.get("discount_id", "").strip()
-
-                rental = Rental.objects.create(
-                    client=client,
-                    status=status if status in dict(Rental.STATUS_CHOICES) else "draft",
-                    start_date=start_d,
-                    end_date=end_d,
-                    discount=Discount.objects.filter(pk=discount_id).first() if discount_id else None,
-                )
 
     return render(request, "forms/rental_form.html", {
         "user":       request.user,

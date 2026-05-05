@@ -19,7 +19,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv("DEBUG") == "True"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["*"]
 
 # APPLICATIONS
 INSTALLED_APPS = [
@@ -90,13 +90,13 @@ TEMPLATES = [
 
 # DATABASE
 DATABASES = {
-    "default": {
-        "ENGINE": os.getenv("DB_ENGINE"),
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST"),
-        "PORT": os.getenv("DB_PORT"),
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': os.environ.get("DB_PASSWORD"),
+        'HOST': '/cloudsql/ski-rent:europe-west1:mqwmee',
+        'PORT': '5432',
     }
 }
 
@@ -116,7 +116,8 @@ USE_I18N = True
 USE_TZ = True
 
 # STATIC
-STATIC_URL = "/static/"
+STATIC_URL = '/static/'
+STATIC_ROOT = 'static'
 STATICFILES_DIRS = []
 
 CACHES = {

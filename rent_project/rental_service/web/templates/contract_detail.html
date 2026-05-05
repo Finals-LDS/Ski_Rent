@@ -774,7 +774,6 @@ function sendOtpCode(channel) {
       smsTxt.textContent = usedChannel === 'email'
         ? 'Код отправлен на email клиента. Введите 6 цифр.'
         : 'Код отправлен по SMS. Введите 6 цифр.';
-      if (body.dev_otp) smsTxt.textContent += ' [DEBUG код: ' + body.dev_otp + ']';
       otpRow.classList.add('show');
       document.getElementById('sms-otp').value = '';
       document.getElementById('sms-otp').focus();
