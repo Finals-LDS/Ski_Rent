@@ -182,7 +182,35 @@
   .btn-cancel  { padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; }
   .btn-confirm { padding: 9px 18px; border-radius: 8px; border: none; background: var(--green); color: #fff; font-weight: 600; cursor: pointer; font-size: 13px; transition: background .15s; }
   .btn-confirm:hover { background: #2ea043; }
-</style>
+
+  /* ═══════════════════════════════════════════
+     MOBILE RESPONSIVE
+  ═══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    body { padding: 16px 12px !important; align-items: flex-start !important; }
+    .card { padding: 20px 16px !important; border-radius: 10px !important; }
+
+    .grid3 { grid-template-columns: 1fr !important; }
+    .grid2 { grid-template-columns: 1fr !important; }
+
+    .item-row {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 8px !important;
+    }
+    .item-row > *:nth-child(1) { grid-column: 1 / -1; }
+
+    .total-bar { flex-wrap: wrap !important; justify-content: flex-start !important; }
+
+    .actions { flex-wrap: wrap !important; }
+    .actions .btn { flex: 1 1 auto; text-align: center; }
+  }
+
+  @media (max-width: 480px) {
+    .item-row { grid-template-columns: 1fr !important; }
+    .item-row > * { grid-column: 1 !important; }
+  }
+
+  </style>
 </head>
 <body>
 

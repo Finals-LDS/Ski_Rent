@@ -72,7 +72,35 @@
   .btn-refund:hover { background: rgba(240,136,62,.22); }
   .btn-cancel { background: transparent; border-color: var(--border); color: var(--muted); }
   .btn-cancel:hover { border-color: rgba(248,81,73,.4); color: var(--red); }
-</style>
+
+  /* ═══════════════════════════════════════════
+     MOBILE RESPONSIVE
+  ═══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    body { padding: 16px 12px !important; align-items: flex-start !important; }
+    .card { padding: 20px 16px !important; border-radius: 10px !important; }
+
+    .grid3 { grid-template-columns: 1fr !important; }
+    .grid2 { grid-template-columns: 1fr !important; }
+
+    .item-row {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 8px !important;
+    }
+    .item-row > *:nth-child(1) { grid-column: 1 / -1; }
+
+    .total-bar { flex-wrap: wrap !important; justify-content: flex-start !important; }
+
+    .actions { flex-wrap: wrap !important; }
+    .actions .btn { flex: 1 1 auto; text-align: center; }
+  }
+
+  @media (max-width: 480px) {
+    .item-row { grid-template-columns: 1fr !important; }
+    .item-row > * { grid-column: 1 !important; }
+  }
+
+  </style>
 </head>
 <body>
 

@@ -128,10 +128,115 @@
 
     .no-results { padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px; }
     .no-results svg { width: 36px; height: 36px; fill: var(--text-muted); opacity: 0.4; margin-bottom: 10px; display: block; margin-inline: auto; }
+  
+    /* ═══════════════════════════════════════════
+       MOBILE RESPONSIVE  (≤ 768px / ≤ 480px)
+    ═══════════════════════════════════════════ */
+
+    /* Кнопка-бургер */
+    .mob-menu-btn {
+      display: none;
+      position: fixed; top: 12px; left: 12px; z-index: 300;
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--surface, #161b22);
+      border: 1px solid var(--border, rgba(255,255,255,0.08));
+      cursor: pointer; align-items: center; justify-content: center;
+      color: var(--text, #e6edf3); padding: 0;
+      transition: background 0.15s, left 0.2s ease, transform 0.2s ease;
+    }
+    .mob-menu-btn.open { left: 272px; }
+    .mob-menu-btn:hover { background: var(--surface2, #1c2130); }
+    .mob-menu-btn svg { width: 22px; height: 22px; fill: currentColor; }
+
+    /* Затемнение фона при открытом меню */
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 150;
+    }
+    .sidebar-overlay.open { display: block; }
+
+    @media (max-width: 768px) {
+      .mob-menu-btn { display: flex; }
+
+      /* Сайдбар уезжает влево, выезжает по клику */
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 200 !important;
+        width: 260px !important;
+      }
+      .sidebar.open { transform: translateX(0); }
+
+      /* Основной контент — на всю ширину */
+      .main, main, .content {
+        margin-left: 0 !important;
+        padding: 16px !important;
+        padding-top: 62px !important;
+      }
+
+      /* Заголовок страницы */
+      .page-header h2 { font-size: 18px !important; }
+      .page-header p  { font-size: 12px !important; }
+
+      /* Сетки */
+      .stats-grid   { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+      .access-grid  { grid-template-columns: 1fr !important; }
+      .actions-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .form-grid    { grid-template-columns: 1fr !important; }
+
+      /* Тулбар / фильтры */
+      .toolbar { flex-wrap: wrap !important; gap: 8px !important; }
+      .search-wrap { min-width: 100% !important; flex: unset !important; }
+      .page-toolbar { flex-wrap: wrap !important; gap: 8px !important; }
+
+      /* Таблицы — горизонтальный скролл */
+      .table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      table { min-width: 600px; }
+
+      /* Контракт-детали */
+      .contract-grid { grid-template-columns: 1fr !important; }
+      .meta-grid     { grid-template-columns: 1fr 1fr !important; }
+      .items-table-wrap { overflow-x: auto !important; }
+
+      /* Аналитика — чарты */
+      .charts-grid  { grid-template-columns: 1fr !important; }
+      .chart-card   { min-width: 0 !important; }
+
+      /* Карточки снаряжения / клиентов */
+      .cards-grid   { grid-template-columns: 1fr !important; }
+      .eq-grid      { grid-template-columns: 1fr !important; }
+
+      /* Стат-суммы кассира (row → wrap) */
+      .cashier-totals { flex-wrap: wrap !important; }
+      .cashier-totals .stat-card { flex: 1 1 calc(50% - 8px) !important; min-width: 140px; }
+
+      /* Модальные окна */
+      .modal-box { width: 95vw !important; max-width: unset !important; padding: 20px !important; }
+
+      /* Склад — фильтры */
+      .filter-row { flex-wrap: wrap !important; }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid   { grid-template-columns: 1fr !important; }
+      .actions-grid { grid-template-columns: 1fr !important; }
+      .cashier-totals .stat-card { flex: 1 1 100% !important; }
+      .meta-grid    { grid-template-columns: 1fr !important; }
+    }
+
   </style>
 </head>
 <body>
-  <aside class="sidebar">
+  <!-- Бургер-кнопка (мобильная) -->
+<button class="mob-menu-btn" id="mob-menu-btn" aria-label="Меню">
+  <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+</button>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<aside class="sidebar">
     <div class="sidebar-brand">
       <div class="brand-ico">
         <svg viewBox="0 0 24 24"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2v14a6 6 0 0 0 6 6 6 6 0 0 0 6-6V2l-1.5 1.5z"/></svg>
@@ -270,8 +375,8 @@
         <div class="dropdown-panel" id="statusDropdown">
           <div class="dropdown-label">Статус платежа</div>
           <div class="dropdown-option" data-filter="status" data-value="paid" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--green)"></span> Оплачен</div>
-          <div class="dropdown-option" data-filter="status" data-value="pending" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--yellow)"></span> Ожидает</div>
-          <div class="dropdown-option" data-filter="status" data-value="failed" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--red)"></span> Ошибка</div>
+          <div class="dropdown-option" data-filter="status" data-value="partially_refunded" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--yellow)"></span> Частичный возврат</div>
+          <div class="dropdown-option" data-filter="status" data-value="refunded" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--red)"></span> Возвращен</div>
           <div class="dropdown-divider"></div>
           <div class="dropdown-clear" onclick="clearFilter('status', 'statusFilterBtn')">✕ Сбросить</div>
         </div>
@@ -305,8 +410,8 @@
             <tr class="payment-row"
               data-contract="{{ p.rental.contract_number|lower }}"
               data-client="{{ p.rental.client.full_name|default:''|lower }}"
-              data-method="{{ p.payment_method|lower }}"
-              data-status="{{ p.status }}"
+              data-method="{{ p.last_method|lower }}"
+              data-status="{{ p.last_status }}"
               data-amount="{{ p.amount }}"
               data-date="{{ p.created_at|date:'Y-m-d' }}">
               <td>{{ p.rental.contract_number }}</td>
@@ -317,7 +422,9 @@
               <td>
                 {% if p.last_status == "paid" %}
                   <span class="badge" style="background:rgba(63, 185, 79, 0.274);color:var(--green);">PAID</span>
-                {% elif p.last_status == "refund" %}
+                {% elif p.last_status == "partially_refunded" %}
+                  <span class="badge" style="background:rgba(210,153,34,0.25);color:var(--yellow);">PARTIAL REFUND</span>
+                {% elif p.last_status == "refunded" %}
                   <span class="badge" style="background:rgba(248, 82, 73, 0.287);color:var(--red);">REFUND</span>
                 {% else %}
                   <span class="badge">{{ p.last_status }}</span>
@@ -332,7 +439,7 @@
                     <button style="padding:5px 13px;border-radius:8px;border:1px solid rgba(240,136,62,.35);background:rgba(240,136,62,.1);color:#f0883e;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='rgba(240,136,62,.22)'" onmouseout="this.style.background='rgba(240,136,62,.1)'">↩ Возврат</button>
                   </a>
                 {% endif %}
-                  {% elif p.last_status == "refund" or p.last_status == "partially_refunded" %}
+                  {% elif p.last_status == "refunded" or p.last_status == "partially_refunded" %}
                   <span style="font-size:11px;font-weight:700;color:#f85149;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.2);border-radius:20px;padding:3px 10px;text-transform:uppercase;letter-spacing:.5px;">Возврат</span>
                 {% endif %}
               </td>
@@ -446,5 +553,54 @@
     applyAll();
   </script>
 {% include "ai_widget.html" %}
+
+<script>
+  /* ── Mobile sidebar toggle ── */
+  (function() {
+    var btn     = document.getElementById('mob-menu-btn');
+    var sidebar = document.querySelector('.sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (!btn || !sidebar || !overlay) return;
+
+    function setMenuIcon(isOpen) {
+      btn.innerHTML = isOpen
+        ? '<svg viewBox="0 0 24 24"><path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.29 10.59 10.59 16.89 4.29z"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>';
+    }
+
+    function open()  {
+      sidebar.classList.add('open');
+      overlay.classList.add('open');
+      btn.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      setMenuIcon(true);
+    }
+    function close() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('open');
+      btn.classList.remove('open');
+      document.body.style.overflow = '';
+      setMenuIcon(false);
+    }
+
+    btn.addEventListener('click', function() {
+      sidebar.classList.contains('open') ? close() : open();
+    });
+    overlay.addEventListener('click', close);
+
+    /* Закрывать при клике на пункт меню на мобиле */
+    var navLinks = sidebar.querySelectorAll('.nav a');
+    navLinks.forEach(function(link) {
+      link.addEventListener('click', function() {
+        if (window.innerWidth <= 768) close();
+      });
+    });
+    window.addEventListener('resize', function() {
+      if (window.innerWidth > 768) close();
+    });
+    setMenuIcon(false);
+  })();
+</script>
+
 </body>
 </html>

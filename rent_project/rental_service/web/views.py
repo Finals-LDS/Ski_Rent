@@ -10,7 +10,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib.auth import get_user_model
 
 from clients.models import Client
-from equipment.models import Equipment, EquipmentType
+from equipment.models import Equipment, EquipmentType, EquipmentSize
 from rentals.models import (Rental, RentalItem, Discount, PriceModifier, Contract)
 from rentals.services import generate_contract_text
 from payments.models import (Payment, RefundTransaction)
@@ -33,6 +33,34 @@ def _close_expired_rentals():
         status__in=ACTIVE_RENTAL_STATUSES,
         end_date__lt=today,
     ).update(status="completed")
+
+
+def _recalculate_inventory_counters():
+    """Пересчитывает поля quantity_rented по активным арендам."""
+    Equipment.objects.update(quantity_rented=0)
+    EquipmentSize.objects.update(quantity_rented=0)
+
+    rented_by_equipment = (
+        RentalItem.objects.filter(rental__status__in=ACTIVE_RENTAL_STATUSES)
+        .values("equipment_id")
+        .annotate(total=Sum("quantity"))
+    )
+    for row in rented_by_equipment:
+        Equipment.objects.filter(pk=row["equipment_id"]).update(
+            quantity_rented=row["total"] or 0
+        )
+
+    rented_by_size = (
+        RentalItem.objects.filter(rental__status__in=ACTIVE_RENTAL_STATUSES)
+        .exclude(size__isnull=True)
+        .exclude(size="")
+        .values("equipment_id", "size")
+        .annotate(total=Sum("quantity"))
+    )
+    for row in rented_by_size:
+        EquipmentSize.objects.filter(
+            equipment_id=row["equipment_id"], size=row["size"]
+        ).update(quantity_rented=row["total"] or 0)
 
 
 def login_view(request):
@@ -101,6 +129,7 @@ def dashboard(request):
     """Главный дашборд. Контекст содержит роль пользователя для ветвления в шаблоне."""
     user = request.user
     _close_expired_rentals()
+    _recalculate_inventory_counters()
 
     if request.method == "POST" and request.user.role == "admin":
         action = request.POST.get("action", "").strip()
@@ -163,11 +192,17 @@ def dashboard(request):
     now = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
-    total_income_month = (
-        Payment.objects.filter(status="paid", created_at__gte=month_start, created_at__lt=next_month)
+    month_payments_total = (
+        Payment.objects.filter(created_at__gte=month_start, created_at__lt=next_month)
         .aggregate(total=Sum("amount"))["total"]
-        or 0
+        or Decimal("0")
     )
+    month_refunds_total = (
+        RefundTransaction.objects.filter(created_at__gte=month_start, created_at__lt=next_month)
+        .aggregate(total=Sum("amount"))["total"]
+        or Decimal("0")
+    )
+    total_income_month = month_payments_total - month_refunds_total
 
     context = {
         "user": user,
@@ -183,22 +218,32 @@ def dashboard(request):
         "discounts": Discount.objects.order_by("min_days"),
         "price_modifier": PriceModifier.objects.first(),
 
-        "recent_refunds": Payment.objects.filter(status="refund")
-            .select_related("rental__client")
+        "recent_refunds": RefundTransaction.objects.filter()
+            .select_related("payment__rental__client")
             .order_by("-created_at")[:10],
 
         "today_payments": Payment.objects.filter(
             created_at__date=timezone.now().date()
         ).select_related("rental__client").order_by("-created_at"),
 
-        "today_income": Payment.objects.filter(
-            created_at__date=timezone.now().date(),
-            status="paid"
-        ).aggregate(total=Sum("amount"))["total"] or 0,
+        "today_income": (
+            (
+                Payment.objects.filter(
+                    created_at__date=timezone.now().date(),
+                ).aggregate(total=Sum("amount"))["total"]
+                or Decimal("0")
+            )
+            -
+            (
+                RefundTransaction.objects.filter(
+                    created_at__date=timezone.now().date(),
+                ).aggregate(total=Sum("amount"))["total"]
+                or Decimal("0")
+            )
+        ),
 
-        "today_refunds": Payment.objects.filter(
+        "today_refunds": RefundTransaction.objects.filter(
             created_at__date=timezone.now().date(),
-            status="refund"
         ).aggregate(total=Sum("amount"))["total"] or 0,
 
         "today_count": Payment.objects.filter(
@@ -290,6 +335,7 @@ def equipment_page(request):
     if request.user.role not in ("admin", "manager"):
         return redirect("dashboard")
     _close_expired_rentals()
+    _recalculate_inventory_counters()
 
     error = None
     equipment_types = EquipmentType.objects.order_by("name")
@@ -385,10 +431,10 @@ def equipment_page(request):
 
 @login_required(login_url="login")
 def rentals_page(request):
-    """Страница аренды (только admin/manager)."""
     if request.user.role not in ("admin", "manager", "cashier"):
         return redirect("dashboard")
     _close_expired_rentals()
+    _recalculate_inventory_counters()
 
     error = None
     clients = Client.objects.order_by("-created_at")
@@ -410,7 +456,7 @@ def rentals_page(request):
             messages.success(request, "Аренда удалена.")
             return redirect("rentals")
 
-        if action == "create":
+        if action == "create" and request.user.role in ("admin", "manager"):
             client_id = request.POST.get("client_id", "").strip()
             days_raw = request.POST.get("days", "1").strip()
             start_date_raw = request.POST.get("start_date", "").strip()
@@ -530,22 +576,26 @@ def payments_page(request):
     if request.user.role not in ("admin", "manager", "cashier"):
         return redirect("dashboard")
     _close_expired_rentals()
+    _recalculate_inventory_counters()
 
     now = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
 
-    paid_in_month_qs = Payment.objects.filter(
-        status="paid", created_at__gte=month_start, created_at__lt=next_month
+    month_payments_qs = Payment.objects.filter(
+        created_at__gte=month_start, created_at__lt=next_month
     )
+    month_refunds_qs = RefundTransaction.objects.filter(
+        created_at__gte=month_start, created_at__lt=next_month
+    )
+    month_payments_total = month_payments_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    month_refunds_total = month_refunds_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
 
-    total_income_month = (
-        paid_in_month_qs.aggregate(total=Sum("amount"))["total"] or 0
-    )
-    paid_in_month_count = paid_in_month_qs.count()
+    total_income_month = month_payments_total - month_refunds_total
+    paid_in_month_count = month_payments_qs.count()
 
     payment_methods_breakdown = (
-        paid_in_month_qs.values("payment_method")
+        month_payments_qs.values("payment_method")
         .annotate(total=Sum("amount"), count=Count("id"))
         .order_by("-total")
     )
@@ -553,9 +603,7 @@ def payments_page(request):
 
     # Группируем платежи по аренде, чтобы не дублировать paid + refund строки
     raw_payments = (
-        Payment.objects.select_related("rental__client")
-        .exclude(status="refunded")
-        .order_by("-created_at")
+        Payment.objects.select_related("rental__client").order_by("-created_at")
     )
 
     grouped = {}
@@ -572,8 +620,6 @@ def payments_page(request):
                 "last_payment_id": p.id if p.id else None,
                 "items": [],
             }
-
-        from payments.models import RefundTransaction
 
         refunded = RefundTransaction.objects.filter(
             payment=p
@@ -688,7 +734,7 @@ def payment_refund_page(request, payment_id):
     payment_id — ID платежа из URL (/payments/42/refund/)
     
     GET  → показывает форму возврата с данными платежа
-    POST → создаёт новый Payment со статусом "refund"
+    POST → создаёт запись RefundTransaction и обновляет статус платежа
     """
     # Только менеджер и админ могут делать возвраты
     if request.user.role not in ("admin", "manager"):
@@ -698,7 +744,7 @@ def payment_refund_page(request, payment_id):
     original_payment = get_object_or_404(Payment, pk=payment_id)
 
     # Нельзя делать возврат на возврат
-    if original_payment.status == "refund":
+    if original_payment.status == "refunded":
         messages.error(request, "Нельзя сделать возврат на уже возвращённый платёж.")
         return redirect("payments")
 
@@ -732,21 +778,21 @@ def payment_refund_page(request, payment_id):
                 elif refund_amount > max_refund:
                     error = f"Сумма возврата не может превышать {max_refund} ₸."
                 else:
-                    # Создаём платёж-возврат
-                    # amount отрицательный — чтобы при подсчёте баланса он вычитался
-                    refund_payment = Payment.objects.create(
-                        rental=original_payment.rental,
-                        amount=-refund_amount,
-                        payment_method=refund_method,
-                        status="refund",
-                        change_amount=Decimal("0"),
-                    )
-
                     RefundTransaction.objects.create(
                         payment=original_payment,
                         amount=refund_amount,
                         reason=refund_reason or "",
                     )
+                    new_refunded_total = (
+                        RefundTransaction.objects.filter(payment=original_payment)
+                        .aggregate(total=Sum("amount"))["total"]
+                        or Decimal("0")
+                    )
+                    if new_refunded_total >= original_payment.amount:
+                        original_payment.status = "refunded"
+                    else:
+                        original_payment.status = "partially_refunded"
+                    original_payment.save(update_fields=["status"])
                     messages.success(
                         request,
                         f"Возврат {refund_amount} ₸ выполнен успешно."
@@ -766,7 +812,7 @@ def payment_refund_page(request, payment_id):
 
 @login_required(login_url="login")
 def rental_edit_page(request, rental_id):
-    if request.user.role != "admin":
+    if request.user.role not in ("admin", "manager"):
         return redirect("rentals")
     rental = get_object_or_404(Rental, pk=rental_id)
     error = None
@@ -1092,6 +1138,7 @@ def analytics_view(request):
     """Страница аналитики с дашбордами и экспортом."""
     if request.user.role not in ('admin', 'manager'):
         return redirect('dashboard')
+    _recalculate_inventory_counters()
 
     from django.db.models.functions import TruncMonth
     from django.db.models import Sum, Count, F
@@ -1102,17 +1149,27 @@ def analytics_view(request):
     month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
 
-    # Revenue by month (current year)
-    revenue_qs = (
+    # Revenue by month (current year): платежи минус возвраты
+    payments_by_month_qs = (
         Payment.objects
-        .filter(status='paid', created_at__gte=year_start)
+        .filter(created_at__gte=year_start)
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    )
+    refunds_by_month_qs = (
+        RefundTransaction.objects
+        .filter(created_at__gte=year_start)
         .annotate(month=TruncMonth('created_at'))
         .values('month')
         .annotate(total=Sum('amount'))
         .order_by('month')
     )
     month_names_ru = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
-    rev_map = {r['month'].month: float(r['total']) for r in revenue_qs}
+    payments_map = {r['month'].month: float(r['total']) for r in payments_by_month_qs}
+    refunds_map = {r['month'].month: float(r['total']) for r in refunds_by_month_qs}
+    rev_map = {m: payments_map.get(m, 0) - refunds_map.get(m, 0) for m in range(1, 13)}
     revenue_labels = json.dumps(month_names_ru)
     revenue_data = json.dumps([rev_map.get(m, 0) for m in range(1, 13)])
 
@@ -1201,6 +1258,7 @@ def analytics_export(request):
     """Экспорт отчётов в Excel или CSV."""
     if request.user.role not in ('admin', 'manager'):
         return redirect('dashboard')
+    _recalculate_inventory_counters()
 
     fmt = request.GET.get('format', 'csv')
     report = request.GET.get('report', 'payments')
@@ -1545,6 +1603,7 @@ def warehouse_view(request):
     """Ведомость остатков снаряжения по категориям."""
     if request.user.role not in ('admin', 'manager'):
         return redirect('dashboard')
+    _recalculate_inventory_counters()
 
     from django.db.models import Sum, Count
     from equipment.models import Equipment, EquipmentType, EquipmentSize
