@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Аренды — Ski Rent CRM</title>
+  <style>
+    /* ── Fixed layout ─────────────────────── */
+    html, body { height: 100%; overflow-x: hidden; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; z-index: 200;
+      overflow-y: auto; overflow-x: hidden;
+    }
+    .main, .content, main {
+      margin-left: 240px;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+    .nav-section {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-muted, rgba(230,237,243,0.4));
+      padding: 10px 10px 5px;
+    }
+    .nav a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 8px;
+      color: var(--text-muted, rgba(230,237,243,0.5));
+      text-decoration: none; font-size: 14px;
+      transition: background 0.15s, color 0.15s; margin-bottom: 2px;
+    }
+    .nav a:hover, .nav a.active {
+      background: rgba(79,172,254,0.12);
+      color: var(--accent, #4facfe);
+    }
+    .nav a svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+    .sidebar-footer, .sb-foot {
+      padding: 14px; border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0e1117;
+      --surface: #161b22;
+      --surface2: #1c2130;
+      --border: rgba(255,255,255,0.08);
+      --text: #e6edf3;
+      --text-muted: rgba(230,237,243,0.55);
+      --accent: #4facfe;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --purple: #a371f7;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 240px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; }
+    .sidebar-brand { padding: 20px 20px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+    .brand-ico { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .brand-ico svg { width: 20px; height: 20px; fill: white; }
+    .brand-name { font-size: 15px; font-weight: 700; }
+    .brand-sub { font-size: 11px; color: var(--text-muted); }
+    .nav { padding: 16px 12px; flex: 1; }
+    .nav-section { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 8px 8px 6px; }
+    .nav a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: background 0.15s, color 0.15s; margin-bottom: 2px; }
+    .nav a:hover, .nav a.active { background: rgba(79,172,254,0.12); color: var(--accent); }
+    .nav a svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+    .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .user-info { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: var(--surface2); margin-bottom: 10px; }
+    .user-avatar { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; flex-shrink: 0; }
+    .user-name { font-size: 13px; font-weight: 600; }
+    .user-role { display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .role-admin { background: rgba(163,113,247,0.2); color: var(--purple); }
+    .role-manager { background: rgba(79,172,254,0.2); color: var(--accent); }
+    .role-cashier { background: rgba(63,185,80,0.2); color: var(--green); }
+    .btn-logout { display: flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding: 9px; background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.25); border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.15s; }
+    .btn-logout:hover { background: rgba(248,81,73,0.22); }
+    .btn-logout svg { width: 16px; height: 16px; fill: currentColor; }
+    .main { margin-left: 240px; padding: 28px 32px; min-height: 100vh; }
+    .page-header { margin-bottom: 22px; }
+    .page-header h2 { font-size: 22px; font-weight: 800; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 18px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    .stat-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .stat-icon svg { width: 20px; height: 20px; fill: white; }
+    .stat-value { font-size: 26px; font-weight: 800; }
+    .stat-label { font-size: 13px; color: var(--text-muted); }
+    .section-title { font-size: 16px; font-weight: 700; margin: 18px 0 12px; }
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    th { color: var(--text-muted); font-weight: 700; text-align: left; background: rgba(255,255,255,0.02); }
+    tr:last-child td { border-bottom: none; }
+    .muted { color: var(--text-muted); }
+    .badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(230,237,243,0.07); color: var(--text-muted); }
+    .inline-form { display: inline-flex; gap: 8px; align-items: center; }
+    .icon-btn { border: none; background: transparent; cursor: pointer; color: var(--red); }
+    .icon-btn svg { width: 17px; height: 17px; fill: currentColor; }
+    .icon-edit { color: var(--accent); text-decoration: none; }
+    .icon-edit svg { width: 16px; height: 16px; fill: currentColor; }
+    input, select { width: 100%; padding: 10px 12px; background: rgba(28,33,48,0.75); border: 1px solid var(--border); border-radius: 10px; color: var(--text); outline: none; }
+
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .search-wrap { position: relative; flex: 1; min-width: 220px; }
+    .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; fill: var(--text-muted); pointer-events: none; }
+    .search-input { width: 100%; padding: 9px 12px 9px 34px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+    .search-input:focus { border-color: rgba(79,172,254,0.4); }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .filter-dropdown { position: relative; }
+    .filter-btn { display: flex; align-items: center; gap: 7px; padding: 9px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color 0.15s, color 0.15s; white-space: nowrap; user-select: none; }
+    .filter-btn:hover { border-color: rgba(79,172,254,0.35); color: var(--accent); }
+    .filter-btn.active { border-color: rgba(79,172,254,0.5); color: var(--accent); background: rgba(79,172,254,0.07); }
+    .filter-btn svg { width: 14px; height: 14px; fill: currentColor; }
+    .filter-btn .chevron { width: 12px; height: 12px; transition: transform 0.2s; }
+    .filter-btn.open .chevron { transform: rotate(180deg); }
+
+    .dropdown-panel { position: absolute; top: calc(100% + 6px); left: 0; min-width: 200px; background: #1a2032; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 200; display: none; animation: dropIn 0.15s ease; }
+    .dropdown-panel.show { display: block; }
+    @keyframes dropIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+    .dropdown-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 4px 8px 6px; }
+    .dropdown-option { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--text-muted); transition: background 0.1s, color 0.1s; }
+    .dropdown-option:hover { background: rgba(79,172,254,0.1); color: var(--text); }
+    .dropdown-option.selected { color: var(--accent); background: rgba(79,172,254,0.1); }
+    .dropdown-option .opt-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.8; flex-shrink: 0; }
+    .dropdown-divider { height: 1px; background: var(--border); margin: 6px 0; }
+    .dropdown-clear { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--text-muted); transition: color 0.1s; }
+    .dropdown-clear:hover { color: var(--red); }
+
+    .sort-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 700; padding: 0; }
+    .sort-btn:hover { color: var(--accent); }
+    .sort-btn svg { width: 13px; height: 13px; fill: currentColor; }
+
+    .no-results { padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px; }
+    .no-results svg { width: 36px; height: 36px; fill: var(--text-muted); opacity: 0.4; margin-bottom: 10px; display: block; margin-inline: auto; }
+
+    .date-range-wrap { position: relative; }
+    .date-range-btn { display: flex; align-items: center; gap: 7px; padding: 9px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; user-select: none; transition: border-color 0.15s, color 0.15s; }
+    .date-range-btn:hover { border-color: rgba(79,172,254,0.35); color: var(--accent); }
+    .date-range-btn.active { border-color: rgba(79,172,254,0.5); color: var(--accent); background: rgba(79,172,254,0.07); }
+    .date-range-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+    .btn-primary { display: flex; align-items: center; gap: 8px; justify-content: center; width: 70%; padding: 9px; background: rgba(73, 152, 248, 0.12); border: 1px solid rgba(73, 169, 248, 0.25); border-radius: 8px; color: rgb(107, 150, 249); font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.15s; }
+    .btn-primary:hover { background: rgba(73, 161, 248, 0.22); }
+    .btn-primary svg { width: 16px; height: 16px; fill: rgb(107, 150, 249); }
+
+    .cal-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: auto;
+      background: #1a2032;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+      z-index: 300;
+      display: none;
+      min-width: 280px;
+      width: max-content;
+      max-width: calc(100vw - 32px);
+      animation: dropIn 0.15s ease;
+    }
+    .cal-panel.show { display: block; }
+    .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .cal-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .cal-nav { display: flex; gap: 4px; }
+    .cal-nav-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; border-radius: 6px; display: flex; align-items: center; transition: background 0.1s, color 0.1s; }
+    .cal-nav-btn:hover { background: rgba(79,172,254,0.12); color: var(--accent); }
+    .cal-nav-btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .cal-dow { text-align: center; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); padding: 4px 0 8px; }
+    .cal-day { text-align: center; padding: 6px 2px; font-size: 12px; border-radius: 7px; cursor: pointer; color: var(--text-muted); transition: background 0.1s, color 0.1s; user-select: none; }
+    .cal-day:hover:not(.cal-empty) { background: rgba(79,172,254,0.15); color: var(--text); }
+    .cal-day.today { color: var(--accent); font-weight: 700; }
+    .cal-day.selected { background: var(--accent); color: #0e1117; font-weight: 700; }
+    .cal-day.in-range { background: rgba(79,172,254,0.15); color: var(--text); border-radius: 0; }
+    .cal-day.range-start { background: var(--accent); color: #0e1117; font-weight: 700; border-radius: 7px 0 0 7px; }
+    .cal-day.range-end { background: var(--accent); color: #0e1117; font-weight: 700; border-radius: 0 7px 7px 0; }
+    .cal-day.cal-empty { cursor: default; }
+    .cal-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); gap: 8px; }
+    .cal-range-display { font-size: 11px; color: var(--text-muted); flex: 1; }
+    .cal-range-display b { color: var(--accent); }
+    .cal-clear { background: none; border: none; cursor: pointer; font-size: 11px; color: var(--text-muted); padding: 4px 8px; border-radius: 6px; transition: color 0.1s; }
+    .cal-clear:hover { color: var(--red); }
+    .cal-apply { background: rgba(79,172,254,0.15); border: 1px solid rgba(79,172,254,0.3); color: var(--accent); font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 7px; cursor: pointer; transition: background 0.1s; }
+    .cal-apply:hover { background: rgba(79,172,254,0.25); }
+  
+    /* ═══════════════════════════════════════════
+       MOBILE RESPONSIVE  (≤ 768px / ≤ 480px)
+    ═══════════════════════════════════════════ */
+
+    /* Кнопка-бургер */
+    .mob-menu-btn {
+      display: none;
+      position: fixed; top: 12px; left: 12px; z-index: 300;
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--surface, #161b22);
+      border: 1px solid var(--border, rgba(255,255,255,0.08));
+      cursor: pointer; align-items: center; justify-content: center;
+      color: var(--text, #e6edf3); padding: 0;
+      transition: background 0.15s, left 0.2s ease, transform 0.2s ease;
+    }
+    .mob-menu-btn.open { left: 272px; }
+    .mob-menu-btn:hover { background: var(--surface2, #1c2130); }
+    .mob-menu-btn svg { width: 22px; height: 22px; fill: currentColor; }
+
+    /* Затемнение фона при открытом меню */
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 150;
+    }
+    .sidebar-overlay.open { display: block; }
+
+    @media (max-width: 768px) {
+      .mob-menu-btn { display: flex; }
+
+      /* Сайдбар уезжает влево, выезжает по клику */
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 200 !important;
+        width: 260px !important;
+      }
+      .sidebar.open { transform: translateX(0); }
+
+      /* Основной контент — на всю ширину */
+      .main, main, .content {
+        margin-left: 0 !important;
+        padding: 16px !important;
+        padding-top: 62px !important;
+      }
+
+      /* Заголовок страницы */
+      .page-header h2 { font-size: 18px !important; }
+      .page-header p  { font-size: 12px !important; }
+
+      /* Сетки */
+      .stats-grid   { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+      .access-grid  { grid-template-columns: 1fr !important; }
+      .actions-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .form-grid    { grid-template-columns: 1fr !important; }
+
+      /* Тулбар / фильтры */
+      .toolbar { flex-wrap: wrap !important; gap: 8px !important; }
+      .search-wrap { min-width: 100% !important; flex: unset !important; }
+      .page-toolbar { flex-wrap: wrap !important; gap: 8px !important; }
+
+      /* Таблицы — горизонтальный скролл */
+      .table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      table { min-width: 600px; }
+
+      /* Контракт-детали */
+      .contract-grid { grid-template-columns: 1fr !important; }
+      .meta-grid     { grid-template-columns: 1fr 1fr !important; }
+      .items-table-wrap { overflow-x: auto !important; }
+
+      /* Аналитика — чарты */
+      .charts-grid  { grid-template-columns: 1fr !important; }
+      .chart-card   { min-width: 0 !important; }
+
+      /* Карточки снаряжения / клиентов */
+      .cards-grid   { grid-template-columns: 1fr !important; }
+      .eq-grid      { grid-template-columns: 1fr !important; }
+
+      /* Стат-суммы кассира (row → wrap) */
+      .cashier-totals { flex-wrap: wrap !important; }
+      .cashier-totals .stat-card { flex: 1 1 calc(50% - 8px) !important; min-width: 140px; }
+
+      /* Модальные окна */
+      .modal-box { width: 95vw !important; max-width: unset !important; padding: 20px !important; }
+
+      /* Склад — фильтры */
+      .filter-row { flex-wrap: wrap !important; }
+      .date-range-wrap { width: 100% !important; }
+      .cal-panel {
+        left: 0 !important;
+        right: auto;
+        width: min(92vw, 360px);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid   { grid-template-columns: 1fr !important; }
+      .actions-grid { grid-template-columns: 1fr !important; }
+      .cashier-totals .stat-card { flex: 1 1 100% !important; }
+      .meta-grid    { grid-template-columns: 1fr !important; }
+    }
+
+  </style>
+</head>
+<body>
+  <!-- Бургер-кнопка (мобильная) -->
+<button class="mob-menu-btn" id="mob-menu-btn" aria-label="Меню">
+  <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+</button>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-ico">
+        <svg viewBox="0 0 24 24"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2v14a6 6 0 0 0 6 6 6 6 0 0 0 6-6V2l-1.5 1.5z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Ski Rent</div>
+        <div class="brand-sub">CRM система</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Главная</div>
+      <a href="{% url 'dashboard' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M13 3V9H21V3M13 21H21V11H13M3 21H11V15H3M3 13H11V3H3V13Z"/></svg>
+        Дашборд
+      </a>
+      {% if is_cashier %}
+      <div class="nav-section">Операции</div>
+      <a href="{% url 'clients' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M16 11C17.66 11 18.99 9.66 18.99 8C18.99 6.34 17.66 5 16 5C14.34 5 13 6.34 13 8C13 9.66 14.34 11 16 11M8 11C9.66 11 10.99 9.66 10.99 8C10.99 6.34 9.66 5 8 5C6.34 5 5 6.34 5 8C5 9.66 6.34 11 8 11M8 13C5.67 13 1 14.17 1 16.5V19H15V16.5C15 14.17 10.33 13 8 13M16 13C15.71 13 15.38 13.02 15.03 13.05C16.19 13.89 17 15.02 17 16.5V19H23V16.5C23 14.17 18.33 13 16 13Z"/></svg>
+        Клиенты
+      </a>
+      <a href="{% url 'rentals' %}" class="active">
+        <svg viewBox="0 0 24 24"><path d="M5,4H19A2,2 0 0,1 21,6V18A2,2 0 0,1 19,20H5A2,2 0 0,1 3,18V6A2,2 0 0,1 5,4M5,8V18H19V8H5M5,6V8H19V6H5M10,10H14V12H10V10M10,14H14V16H10V14Z"/></svg>
+        Аренды
+      </a>
+      <a href="{% url 'payments' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4C2.89 4 2.01 4.89 2.01 6L2 18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V6C22 4.89 21.11 4 20 4M20 18H4V12H20V18M20 8H4V6H20V8Z"/></svg>
+        Платежи
+      </a>
+      {% endif %}
+      {% if is_manager %}
+      <div class="nav-section">Управление</div>
+      <a href="{% url 'equipment' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M11,2A2,2 0 0,1 13,4V8A2,2 0 0,1 11,10H9V12H13V14H9V22H7V14H3V12H7V10H5A2,2 0 0,1 3,8V4A2,2 0 0,1 5,2H11M5,8H11V4H5V8M20,22H18V18H16V16H18V14H16V12H18V8H16V6H18V4H20V6H22V8H20V12H22V14H20V16H22V18H20V22Z"/></svg>
+        Снаряжение
+      </a>
+      <a href="{% url 'analytics' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M22 21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg>
+        Аналитика
+      </a>
+      {% endif %}
+      {% if is_admin %}
+      <div class="nav-section">Администрирование</div>
+      <a href="{% url 'users' %}" class="">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        Пользователи
+      </a>
+      {% endif %}
+      {% if is_admin %}
+      <a href="{% url 'app_settings' %}">
+        <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.3.07-.62.07-.93s-.03-.64-.07-1l2.25-1.74c.2-.16.25-.44.12-.64l-2.12-3.68c-.13-.21-.38-.29-.6-.21l-2.64 1.06c-.56-.42-1.16-.78-1.82-1.04l-.4-2.82c-.04-.23-.25-.4-.48-.4h-4.24c-.23 0-.44.17-.48.4l-.4 2.82c-.65.26-1.25.62-1.82 1.04L4.2 5.33c-.22-.08-.47 0-.6.21L1.48 9.22c-.13.2-.08.48.12.64l2.25 1.74c-.04.36-.07.67-.07 1s.03.64.07 1l-2.25 1.74c-.2.16-.25.44-.12.64l2.12 3.68c.13.21.38.29.6.21l2.64-1.06c.56.42 1.16.78 1.82 1.04l.4 2.82c.04.23.25.4.48.4h4.24c.23 0 .44-.17.48-.4l.4-2.82c.65-.26 1.25-.62 1.82-1.04l2.64 1.06c.22.08.47 0 .6-.21l2.12-3.68c.13-.2.08-.48-.12-.64l-2.25-1.74z"/></svg>
+        Настройки
+      </a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">{{ user.username|first|upper }}</div>
+        <div>
+          <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+          <span class="user-role {% if role == 'admin' %}role-admin{% elif role == 'manager' %}role-manager{% else %}role-cashier{% endif %}">{{ role }}</span>
+        </div>
+      </div>
+      <a href="/logout/" class="btn-logout">
+        <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        Выйти
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header"><h2>Аренды</h2></div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe)"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+        <div class="stat-value">{{ total_rentals_count }}</div>
+        <div class="stat-label">Всего аренд</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#a371f7,#8b5cf6)"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg></div>
+        <div class="stat-value">{{ active_rentals_count }}</div>
+        <div class="stat-label">Активных аренд</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#d29922,#f59e0b)"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.34C18 2.1 15.9 0 13.34 0c-1.36 0-2.56.56-3.44 1.46L9 2.9 8.1 1.46C7.22.56 6.02 0 4.66 0 2.1 0 0 2.1 0 4.66c0 .46.11.9.18 1.34H0C0 6 2 8 4 8h16c2 0 4-2 4-6z"/></svg></div>
+        <div class="stat-value">{{ draft_rentals_count }}</div>
+        <div class="stat-label">Черновиков</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#3fb950,#2da44e)"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></div>
+        <div class="stat-value">{{ active_rentals_total_price }}</div>
+        <div class="stat-label">Сумма активных аренд</div>
+      </div>
+    </div>
+
+    <div class="section-title">Список аренды</div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input type="text" class="search-input" id="rentalSearch" placeholder="Поиск по клиенту, номеру договора…">
+      </div>
+
+      <div class="filter-dropdown">
+        <div class="filter-btn" id="statusFilterBtn" onclick="toggleDropdown('statusDropdown', this)">
+          <svg viewBox="0 0 24 24"><path d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 18.95 4H5.04a1 1 0 0 0-.79 1.61z"/></svg>
+          Статус
+          <svg class="chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="dropdown-panel" id="statusDropdown">
+          <div class="dropdown-label">Статус аренды</div>
+          <div class="dropdown-option" data-filter="status" data-value="draft" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--purple)"></span> Черновик</div>
+          <div class="dropdown-option" data-filter="status" data-value="open" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--accent)"></span> Открыт</div>
+          <div class="dropdown-option" data-filter="status" data-value="booked" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--yellow)"></span> Забронирован</div>
+          <div class="dropdown-option" data-filter="status" data-value="rented" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--green)"></span> Арендован</div>
+          <div class="dropdown-option" data-filter="status" data-value="completed" onclick="selectFilter(this)"><span class="opt-dot"></span> Завершён</div>
+          <div class="dropdown-option" data-filter="status" data-value="canceled" onclick="selectFilter(this)"><span class="opt-dot" style="color:var(--red)"></span> Отменён</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-clear" onclick="clearFilter('status', 'statusFilterBtn')">✕ Сбросить</div>
+        </div>
+      </div>
+
+      <div class="date-range-wrap">
+        <div class="date-range-btn" id="dateRangeBtn" onclick="toggleCal()">
+          <svg viewBox="0 0 24 24"><path d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>
+          <span id="dateRangeLabel">Период</span>
+          <svg class="chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="cal-panel" id="calPanel">
+          <div class="cal-header">
+            <button class="cal-nav-btn" onclick="calPrevMonth()"><svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg></button>
+            <div class="cal-title" id="calMonthTitle"></div>
+            <button class="cal-nav-btn" onclick="calNextMonth()"><svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+          <div class="cal-footer">
+            <div class="cal-range-display" id="calRangeDisplay">Выберите начало периода</div>
+            <button class="cal-clear" onclick="clearDateRange()">Сбросить</button>
+            <button class="cal-apply" onclick="applyDateRange()">Применить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>
+              <button class="sort-btn" onclick="sortTable('contract')">Договор <svg id="sort-contract-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('client')">Клиент <svg id="sort-client-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>Статус</th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('period')">Период <svg id="sort-period-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>Снаряжение</th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('price')">Итого <svg id="sort-price-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>
+              <button class="sort-btn" onclick="sortTable('date')">Создан <svg id="sort-date-ico" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg></button>
+            </th>
+            <th>Договор</th>
+            {% if is_admin or is_manager %}<th>Действия</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody id="rentalsBody">
+          {% for r in rentals %}
+            <tr class="rental-row"
+              data-contract="{{ r.contract_number|lower }}"
+              data-client="{{ r.client.full_name|default:''|lower }}"
+              data-status="{{ r.status }}"
+              data-start="{{ r.start_date|date:'Y-m-d'|default:'' }}"
+              data-end="{{ r.end_date|date:'Y-m-d'|default:'' }}"
+              data-price="{{ r.total_price|default:0 }}"
+              data-date="{{ r.created_at|date:'Y-m-d' }}">
+              <td>{{ r.contract_number }}</td>
+              <td>{{ r.client.full_name|default:"—" }}</td>
+              <td>
+                {% if is_admin %}
+                  <form method="post" action="{% url 'rentals' %}" class="inline-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="status">
+                    <input type="hidden" name="rental_id" value="{{ r.id }}">
+                    <select name="new_status" onchange="this.form.submit()">
+                      {% for value, title in r.STATUS_CHOICES %}
+                        <option value="{{ value }}" {% if r.status == value %}selected{% endif %}>{{ title }}</option>
+                      {% endfor %}
+                    </select>
+                  </form>
+                {% else %}
+                  {% if r.status == "draft" %}<span class="badge" style="background:rgba(163,113,247,0.2); color:var(--purple);">Черновик</span>
+                  {% elif r.status == "open" %}<span class="badge" style="background:rgba(79,172,254,0.2); color:var(--accent);">Открыт</span>
+                  {% elif r.status == "booked" %}<span class="badge" style="background:rgba(210,153,34,0.18); color:var(--yellow);">Забронирован</span>
+                  {% elif r.status == "rented" %}<span class="badge" style="background:rgba(63,185,80,0.2); color:var(--green);">Арендован</span>
+                  {% elif r.status == "completed" %}<span class="badge" style="background:rgba(230,237,243,0.07); color:var(--text-muted);">Завершён</span>
+                  {% elif r.status == "canceled" %}<span class="badge" style="background:rgba(248,81,73,0.18); color:var(--red);">Отменён</span>
+                  {% else %}<span class="badge">{{ r.status }}</span>{% endif %}
+                {% endif %}
+              </td>
+              
+              <td>{% if r.start_date %}{{ r.start_date|date:"Y-m-d" }}{% else %}—{% endif %} → {% if r.end_date %}{{ r.end_date|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+              <td>
+                {% for item in r.items.all %}
+                 <span style="display:block; font-size:12px; color:var(--text-muted);">
+                  {{ item.equipment.name }}{% if item.size %} <span style="color:var(--accent);">р.{{ item.size }}</span>{% endif %}{% if item.quantity > 1 %} ×{{ item.quantity }}{% endif %}
+                 </span>
+                {% empty %}—{% endfor %}
+              </td>
+
+              <td>{% if r.total_price is not None %}{{ r.total_price }}{% else %}—{% endif %}</td>
+              <td class="muted">{{ r.created_at|date:"Y-m-d" }}</td>
+
+              {# ── Колонка "Договор" ── #}
+              <td>
+                {% with ct=r.contract %}
+                  {% if ct %}
+                    {# Договор существует — показываем ссылку с цветным статусом #}
+                    <a href="{% url 'contract_detail' ct.id %}"
+                       style="display:inline-flex;align-items:center;gap:5px;
+                              text-decoration:none;font-size:12px;font-weight:700;
+                              padding:4px 10px;border-radius:8px;transition:opacity .15s;
+                              {% if ct.status == 'signed_card' %}
+                                background:rgba(79,172,254,.12);color:#4facfe;border:1px solid rgba(79,172,254,.25);
+                              {% elif ct.status == 'signed_sms' or ct.status == 'accepted' %}
+                                background:rgba(63,185,80,.12);color:#3fb950;border:1px solid rgba(63,185,80,.25);
+                              {% else %}
+                                background:rgba(230,237,243,.06);color:rgba(230,237,243,.55);border:1px solid rgba(255,255,255,.08);
+                              {% endif %}"
+                       title="Открыть договор #{{ ct.id }}"
+                       onmouseover="this.style.opacity='.75'"
+                       onmouseout="this.style.opacity='1'">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-1 8H8v-2h4v2zm3-4H8v-2h7v2z"/>
+                      </svg>
+                      {% if ct.status == 'signed_card' %}🔐{% elif ct.status == 'signed_sms' or ct.status == 'accepted' %}✅{% else %}📄{% endif %}
+                      #{{ ct.id }}
+                    </a>
+                  {% else %}
+                    {# Договора нет — кнопка создания #}
+                    {% if r.client %}
+                      <a href="{% url 'contract_create_web' r.id %}" class="btn-primary">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                        </svg>
+                        Создать
+                      </a>
+                    {% else %}
+                      <span style="color:rgba(230,237,243,.3);font-size:12px;">нет клиента</span>
+                    {% endif %}
+                  {% endif %}
+                {% endwith %}
+              </td>
+
+              {% if is_admin or is_manager %}
+              <td>
+                <a href="{% url 'rental_edit' r.id %}" style="text-decoration:none; margin:10px;" class="icon-edit" title="Редактировать">
+                  <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </a>
+
+                {% if is_admin %}
+                <form method="post" action="{% url 'rentals' %}" style="display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="rental_id" value="{{ r.id }}">
+                  <button type="submit" class="icon-btn" title="Удалить" onclick="return confirm('Удалить аренду?')">
+                    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr><td colspan="{% if is_admin %}8{% else %}7{% endif %}" class="muted">Аренды пока отсутствуют</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="no-results" id="noResults" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        Ничего не найдено по вашему запросу
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let activeFilters = { status: null };
+    let dateRange = { start: null, end: null, applied: false };
+    let calPicking = null;
+    let calYear, calMonth;
+    let sortState = { col: null, dir: 1 };
+    const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    const DAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+    document.getElementById('rentalSearch').addEventListener('input', applyAll);
+
+    function toggleDropdown(id, btn) {
+      const panel = document.getElementById(id);
+      const calPanel = document.getElementById('calPanel');
+      const dateBtn = document.getElementById('dateRangeBtn');
+      const isOpen = panel.classList.contains('show');
+
+      document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
+
+      if (calPanel) calPanel.classList.remove('show');
+      if (dateBtn) dateBtn.classList.remove('open');
+
+      if (!isOpen) {
+        panel.classList.add('show');
+        btn.classList.add('open');
+      }
+    }
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.filter-dropdown') && !e.target.closest('.date-range-wrap')) {
+        document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
+        document.getElementById('calPanel').classList.remove('show');
+      }
+    });
+
+    function selectFilter(el) {
+      const filter = el.dataset.filter;
+      const value = el.dataset.value;
+      document.querySelectorAll(`[data-filter="${filter}"]`).forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      activeFilters[filter] = value;
+      document.getElementById('statusFilterBtn').classList.add('active');
+      applyAll();
+    }
+
+    function clearFilter(filter, btnId) {
+      activeFilters[filter] = null;
+      document.querySelectorAll(`[data-filter="${filter}"]`).forEach(o => o.classList.remove('selected'));
+      document.getElementById(btnId).classList.remove('active');
+      applyAll();
+    }
+
+    function toggleCal() {
+      const panel = document.getElementById('calPanel');
+      const btn = document.getElementById('dateRangeBtn');
+      const isOpen = panel.classList.contains('show');
+
+      document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
+
+      if (!isOpen) {
+        const now = new Date();
+        calYear = now.getFullYear();
+        calMonth = now.getMonth();
+
+        renderCal();
+        panel.classList.add('show');
+        btn.classList.add('open');
+
+        requestAnimationFrame(() => {
+          panel.style.left = '0px';
+          panel.style.right = 'auto';
+
+          const rect = panel.getBoundingClientRect();
+          const overflowRight = rect.right - window.innerWidth + 16;
+          const overflowLeft = 16 - rect.left;
+
+          if (overflowRight > 0) {
+            panel.style.left = `-${overflowRight}px`;
+          }
+
+          if (overflowLeft > 0) {
+            panel.style.left = `${overflowLeft}px`;
+          }
+        });
+      } else {
+        panel.classList.remove('show');
+        btn.classList.remove('open');
+      }
+    }
+
+    function renderCal() {
+      document.getElementById('calMonthTitle').textContent = `${MONTHS[calMonth]} ${calYear}`;
+      const grid = document.getElementById('calGrid');
+      grid.innerHTML = '';
+      DAYS.forEach(d => { const el = document.createElement('div'); el.className = 'cal-dow'; el.textContent = d; grid.appendChild(el); });
+      const firstDay = new Date(calYear, calMonth, 1).getDay();
+      const offset = firstDay === 0 ? 6 : firstDay - 1;
+      const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+      for (let i = 0; i < offset; i++) { const el = document.createElement('div'); el.className = 'cal-day cal-empty'; grid.appendChild(el); }
+      const today = new Date(); today.setHours(0,0,0,0);
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(calYear, calMonth, d);
+        const dateStr = date.toISOString().split('T')[0];
+        const el = document.createElement('div');
+        el.className = 'cal-day';
+        el.textContent = d;
+        if (date.getTime() === today.getTime()) el.classList.add('today');
+        if (dateRange.start && dateStr === dateRange.start) el.classList.add(dateRange.end ? 'range-start' : 'selected');
+        else if (dateRange.end && dateStr === dateRange.end) el.classList.add('range-end');
+        else if (dateRange.start && dateRange.end && dateStr > dateRange.start && dateStr < dateRange.end) el.classList.add('in-range');
+        el.addEventListener('click', () => pickDate(dateStr));
+        grid.appendChild(el);
+      }
+      updateCalDisplay();
+    }
+
+    function pickDate(dateStr) {
+      if (!dateRange.start || (dateRange.start && dateRange.end)) {
+        dateRange.start = dateStr; dateRange.end = null;
+      } else {
+        if (dateStr < dateRange.start) { dateRange.end = dateRange.start; dateRange.start = dateStr; }
+        else { dateRange.end = dateStr; }
+      }
+      renderCal();
+    }
+
+    function updateCalDisplay() {
+      const el = document.getElementById('calRangeDisplay');
+      if (!dateRange.start) el.innerHTML = 'Выберите начало периода';
+      else if (!dateRange.end) el.innerHTML = `Начало: <b>${dateRange.start}</b> — выберите конец`;
+      else el.innerHTML = `<b>${dateRange.start}</b> → <b>${dateRange.end}</b>`;
+    }
+
+    function calPrevMonth() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCal(); }
+    function calNextMonth() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCal(); }
+
+    function applyDateRange() {
+      dateRange.applied = !!(dateRange.start && dateRange.end);
+      const btn = document.getElementById('dateRangeBtn');
+      const label = document.getElementById('dateRangeLabel');
+      if (dateRange.applied) {
+        label.textContent = `${dateRange.start} → ${dateRange.end}`;
+        btn.classList.add('active');
+      }
+      document.getElementById('calPanel').classList.remove('show');
+      applyAll();
+    }
+
+    function clearDateRange() {
+      dateRange = { start: null, end: null, applied: false };
+      document.getElementById('dateRangeLabel').textContent = 'Период';
+      document.getElementById('dateRangeBtn').classList.remove('active');
+      renderCal();
+      applyAll();
+    }
+
+    function applyAll() {
+      const q = document.getElementById('rentalSearch').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('.rental-row');
+      let visible = 0;
+      rows.forEach(row => {
+        const contract = row.dataset.contract;
+        const client = row.dataset.client;
+        const status = row.dataset.status;
+        const start = row.dataset.start;
+        const end = row.dataset.end;
+        let show = true;
+        if (q && !contract.includes(q) && !client.includes(q)) show = false;
+        if (activeFilters.status && status !== activeFilters.status) show = false;
+        if (dateRange.applied && dateRange.start && dateRange.end) {
+          const rowStart = start || '9999';
+          const rowEnd = end || '0000';
+          if (rowEnd < dateRange.start || rowStart > dateRange.end) show = false;
+        }
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      document.getElementById('visibleCount').textContent = visible;
+      document.getElementById('noResults').style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    function sortTable(col) {
+      if (sortState.col === col) sortState.dir *= -1;
+      else { sortState.col = col; sortState.dir = 1; }
+      ['contract','client','period','price','date'].forEach(c => {
+        const ico = document.getElementById(`sort-${c}-ico`);
+        if (ico) ico.style.opacity = c === col ? '1' : '0.4';
+      });
+      const tbody = document.getElementById('rentalsBody');
+      const rows = Array.from(tbody.querySelectorAll('.rental-row'));
+      rows.sort((a, b) => {
+        let av, bv;
+        if (col === 'contract' || col === 'client') { av = a.dataset[col]; bv = b.dataset[col]; return av.localeCompare(bv) * sortState.dir; }
+        if (col === 'period') { av = a.dataset.start || ''; bv = b.dataset.start || ''; return av.localeCompare(bv) * sortState.dir; }
+        if (col === 'price') { av = parseFloat(a.dataset.price)||0; bv = parseFloat(b.dataset.price)||0; }
+        if (col === 'date') { av = a.dataset.date; bv = b.dataset.date; return av.localeCompare(bv) * sortState.dir; }
+        return (av - bv) * sortState.dir;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+      applyAll();
+    }
+
+    applyAll();
+
+    function computeTotalPreview() {
+      const daysEl = document.getElementById('days');
+      const selectEl = document.getElementById('equipment_ids');
+      const previewEl = document.getElementById('total-preview');
+      if (!daysEl || !selectEl || !previewEl) return;
+      const days = parseInt(daysEl.value, 10) || 1;
+      let total = 0;
+      Array.from(selectEl.selectedOptions).forEach((opt) => { total += (parseFloat(opt.getAttribute('data-price')) || 0) * days; });
+      previewEl.textContent = total.toFixed(2);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      const daysEl = document.getElementById('days');
+      const selectEl = document.getElementById('equipment_ids');
+      if (!daysEl || !selectEl) return;
+      daysEl.addEventListener('input', computeTotalPreview);
+      daysEl.addEventListener('change', computeTotalPreview);
+      selectEl.addEventListener('change', computeTotalPreview);
+      computeTotalPreview();
+    });
+  </script>
+{% include "ai_widget.html" %}
+
+<script>
+  /* ── Mobile sidebar toggle ── */
+  (function() {
+    var btn     = document.getElementById('mob-menu-btn');
+    var sidebar = document.querySelector('.sidebar');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (!btn || !sidebar || !overlay) return;
+
+    function setMenuIcon(isOpen) {
+      btn.innerHTML = isOpen
+        ? '<svg viewBox="0 0 24 24"><path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.29 10.59 10.59 16.89 4.29z"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>';
+    }
+
+    function open()  {
+      sidebar.classList.add('open');
+      overlay.classList.add('open');
+      btn.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      setMenuIcon(true);
+    }
+    function close() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('open');
+      btn.classList.remove('open');
+      document.body.style.overflow = '';
+      setMenuIcon(false);
+    }
+
+    btn.addEventListener('click', function() {
+      sidebar.classList.contains('open') ? close() : open();
+    });
+    overlay.addEventListener('click', close);
+
+    /* Закрывать при клике на пункт меню на мобиле */
+    var navLinks = sidebar.querySelectorAll('.nav a');
+    navLinks.forEach(function(link) {
+      link.addEventListener('click', function() {
+        if (window.innerWidth <= 768) close();
+      });
+    });
+    window.addEventListener('resize', function() {
+      if (window.innerWidth > 768) close();
+    });
+    setMenuIcon(false);
+  })();
+</script>
+
+</body>
+</html>

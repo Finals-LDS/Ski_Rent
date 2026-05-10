@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if client %}Редактирование клиента{% else %}Новый клиент{% endif %} — Ski Rent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0e1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { width: 100%; max-width: 680px; background: #161b22; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 28px; }
+    .card-title { font-size: 18px; font-weight: 700; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
+    label { display: block; font-size: 12px; color: rgba(230,237,243,.55); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); background: #1c2130; color: #e6edf3; font-size: 13px; outline: none; transition: border-color 0.15s; }
+    input:focus, select:focus { border-color: rgba(79,172,254,.4); }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .full { grid-column: 1 / -1; }
+    .btn { padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid; transition: all .15s; }
+    .btn-primary { background: rgba(79,172,254,.12); border-color: rgba(79,172,254,.35); color: #4facfe; }
+    .btn-primary:hover { background: rgba(79,172,254,.2); }
+    .btn-danger  { background: rgba(248,81,73,.1);   border-color: rgba(248,81,73,.3);   color: #f85149; }
+    .btn-danger:hover  { background: rgba(248,81,73,.2); }
+    a { text-decoration: none; color: #e6edf3; }
+    .err { color: #f85149; margin-bottom: 14px; font-size: 13px; background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.2); border-radius: 8px; padding: 10px 14px; }
+    .actions { display: flex; gap: 10px; margin-top: 20px; }
+    .birthday-note { font-size: 11px; color: rgba(230,237,243,0.4); margin-top: 4px; }
+    .section-label { font-size: 11px; font-weight: 700; color: rgba(230,237,243,0.35); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; margin-top: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px; }
+  
+  /* ═══════════════════════════════════════════
+     MOBILE RESPONSIVE
+  ═══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    body { padding: 16px 12px !important; align-items: flex-start !important; }
+    .card { padding: 20px 16px !important; border-radius: 10px !important; }
+
+    .grid3 { grid-template-columns: 1fr !important; }
+    .grid2 { grid-template-columns: 1fr !important; }
+
+    .item-row {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 8px !important;
+    }
+    .item-row > *:nth-child(1) { grid-column: 1 / -1; }
+
+    .total-bar { flex-wrap: wrap !important; justify-content: flex-start !important; }
+
+    .actions { flex-wrap: wrap !important; }
+    .actions .btn { flex: 1 1 auto; text-align: center; }
+  }
+
+  @media (max-width: 480px) {
+    .item-row { grid-template-columns: 1fr !important; }
+    .item-row > * { grid-column: 1 !important; }
+  }
+
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-title">
+      {% if client %}Редактирование клиента{% else %} Новый клиент{% endif %}
+    </div>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="section-label">Основная информация</div>
+      <div class="grid">
+        <div>
+          <label>ФИО *</label>
+          <input name="full_name" value="{{ client.full_name|default:'' }}" placeholder="Иванов Иван Иванович" required>
+        </div>
+        <div>
+          <label>Телефон</label>
+          <input name="phone" value="{{ client.phone|default:'' }}" placeholder="+7 700 777 77 77">
+        </div>
+        <div>
+          <label>Email</label>
+          <input name="email" type="email" value="{{ client.email|default:'' }}" placeholder="email@gmail.com">
+        </div>
+        <div>
+          <label>Документ (ИИН / Паспорт)</label>
+          <input name="document_id" value="{{ client.document_id|default:'' }}" placeholder="000000000000">
+        </div>
+      </div>
+      <div class="section-label"> День рождения (для рассылки поздравлений)</div>
+      <div class="grid">
+        <div>
+          <label>Дата рождения</label>
+          <input name="birth_date" type="date" value="{{ client.birth_date|date:'Y-m-d'|default:'' }}">
+          <div class="birthday-note">Клиент получит поздравление и скидку в день рождения</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" type="submit">Сохранить</button>
+        <a href="{% url 'dashboard' %}"><button class="btn btn-danger" type="button">Отмена</button></a>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

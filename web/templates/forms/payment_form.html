@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Принять оплату</title>
+<style>
+  /* CSS-переменные — цвета задаём один раз, используем везде через var() */
+  :root {
+    --bg: #0e1117;
+    --card: #161b22;
+    --border: rgba(255,255,255,.08);
+    --text: #e6edf3;
+    --muted: rgba(230,237,243,.5);
+    --blue: #4facfe;
+    --red: #f85149;
+    --green: #3fb950;
+    --input-bg: #1c2130;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Центрируем карточку на экране */
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 640px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 24px;
+  }
+
+  h2 { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
+
+  /* Блок ошибки — показывается если Django передал {{ error }} */
+  .err {
+    background: rgba(248,81,73,.1);
+    border: 1px solid rgba(248,81,73,.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--red);
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  select, input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  select:focus, input[type="number"]:focus {
+    border-color: rgba(79,172,254,.4);
+  }
+
+  /* Три кнопки метода оплаты — CSS Grid, три равные колонки */
+  .method-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  /* Базовая кнопка метода (неактивная) */
+  .method-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 10px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--input-bg);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .2s;
+    font-size: 13px;
+    font-weight: 500;
+    user-select: none;
+  }
+  .method-btn .icon { font-size: 26px; line-height: 1; }
+  .method-btn:hover { border-color: rgba(79,172,254,.35); color: var(--text); }
+
+  /* JS добавляет эти классы при выборе */
+  .method-btn.active      { border-color: var(--blue);  background: rgba(79,172,254,.1); color: var(--blue); }
+  .method-btn.active-cash { border-color: var(--green); background: rgba(63,185,80,.1);  color: var(--green); }
+
+  .row { margin-bottom: 20px; }
+
+  .actions { display: flex; gap: 10px; margin-top: 6px; }
+  .btn { padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid; transition: all .15s; }
+  .btn-primary { background: rgba(79,172,254,.12); border-color: rgba(79,172,254,.35); color: var(--blue); }
+  .btn-primary:hover { background: rgba(79,172,254,.2); }
+  .btn-danger  { background: rgba(248,81,73,.1);   border-color: rgba(248,81,73,.3);   color: var(--red); }
+  .btn-danger:hover  { background: rgba(248,81,73,.2); }
+
+  /* Модальное окно — фиксировано поверх страницы, скрыто по умолчанию */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  /* JS добавляет класс .open → окно становится видимым */
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: #1c2130;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 14px;
+    width: 400px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+
+  .modal-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    font-weight: 600; font-size: 15px;
+  }
+  .modal-header .star { color: #f0a848; font-size: 18px; }
+  .modal-body { padding: 20px 18px; }
+
+  /* Строка "метка: значение" внутри модалки */
+  .info-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .info-row label  { font-size: 13px; color: var(--muted); text-transform: none; letter-spacing: 0; margin: 0; }
+  .info-row .val   { font-size: 22px; font-weight: 700; color: var(--text); }
+  .info-row .val-sm { font-size: 14px; color: var(--text); }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+  /* Бейдж с иконкой метода оплаты */
+  .badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+  .badge-card { background: rgba(79,172,254,.12); color: var(--blue);  border: 1px solid rgba(79,172,254,.25); }
+  .badge-cash { background: rgba(63,185,80,.12);  color: var(--green); border: 1px solid rgba(63,185,80,.25); }
+
+  .hint { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+
+  /* Нумпад для наличных — 4 колонки, Enter растянут на 2 строки */
+  .numpad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+  .nk {
+    padding: 12px 6px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--input-bg); color: var(--text); font-size: 15px;
+    cursor: pointer; text-align: center; transition: background .15s; user-select: none;
+  }
+  .nk:hover { background: rgba(255,255,255,.07); }
+  .nk.enter {
+    background: #c89b00; border-color: #c89b00; color: #fff; font-weight: 700;
+    grid-row: span 2; /* занимает 2 строки сетки */
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .nk.enter:hover { background: #d4a800; }
+  .nk.clr { font-size: 11px; }
+
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--border); }
+  .btn-cancel  { padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; }
+  .btn-confirm { padding: 9px 18px; border-radius: 8px; border: none; background: var(--green); color: #fff; font-weight: 600; cursor: pointer; font-size: 13px; transition: background .15s; }
+  .btn-confirm:hover { background: #2ea043; }
+
+  /* ═══════════════════════════════════════════
+     MOBILE RESPONSIVE
+  ═══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    body { padding: 16px 12px !important; align-items: flex-start !important; }
+    .card { padding: 20px 16px !important; border-radius: 10px !important; }
+
+    .grid3 { grid-template-columns: 1fr !important; }
+    .grid2 { grid-template-columns: 1fr !important; }
+
+    .item-row {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 8px !important;
+    }
+    .item-row > *:nth-child(1) { grid-column: 1 / -1; }
+
+    .total-bar { flex-wrap: wrap !important; justify-content: flex-start !important; }
+
+    .actions { flex-wrap: wrap !important; }
+    .actions .btn { flex: 1 1 auto; text-align: center; }
+  }
+
+  @media (max-width: 480px) {
+    .item-row { grid-template-columns: 1fr !important; }
+    .item-row > * { grid-column: 1 !important; }
+  }
+
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Принять оплату</h2>
+
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+  <form method="post" id="paymentForm">
+    {% csrf_token %}
+
+    <!--
+      Скрытое поле — пользователь его не видит.
+      JS запишет сюда 'kaspi', 'halyk' или 'cash' при выборе кнопки.
+      Django получит значение через request.POST.get("payment_method")
+    -->
+    <input type="hidden" name="payment_method" id="methodInput">
+
+    <!--
+      data-amount — атрибут с суммой договора.
+      JS читает его при выборе договора и автоподставляет в поле суммы.
+    -->
+    <div class="row">
+      <label>Договор *</label>
+      <select name="rental_id" id="rentalSelect" required>
+        <option value="">—</option>
+        {% for r in rentals_for_select %}
+          <option value="{{ r.id }}" data-amount="{{ r.total_price }}">
+            {{ r.contract_number }} — {{ r.client.full_name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- onclick вызывает JS-функцию selectMethod с нужным аргументом -->
+    <label>Метод оплаты *</label>
+    <div class="method-grid">
+      <div class="method-btn" id="btn-kaspi" onclick="selectMethod('kaspi')">
+        <span class="icon">🏦</span>
+        <span>Kaspi Bank</span>
+      </div>
+      <div class="method-btn" id="btn-halyk" onclick="selectMethod('halyk')">
+        <span class="icon">💳</span>
+        <span>Halyk Bank</span>
+      </div>
+      <div class="method-btn" id="btn-cash" onclick="selectMethod('cash')">
+        <span class="icon">💵</span>
+        <span>Наличные</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Сумма *</label>
+      <input type="number" name="amount" id="amountInput"
+             step="0.01" min="0" placeholder="0.00" required>
+    </div>
+
+    <div class="actions">
+      <!--
+        type="button" — НЕ отправляет форму сразу!
+        Сначала openConfirm() проверяет поля и открывает модалку.
+        Форма уйдёт только из submitPayment() после подтверждения.
+      -->
+      <button type="button" class="btn btn-primary" onclick="openConfirm()">Продолжить →</button>
+      <a href="{% url 'dashboard' %}">
+        <button type="button" class="btn btn-danger">Отмена</button>
+      </a>
+    </div>
+  </form>
+</div>
+
+
+<!-- Модальное окно — скрыто (нет класса .open), JS добавит его -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span id="modalTitle">Оплата</span>  <!-- JS меняет текст -->
+    </div>
+
+    <div class="modal-body">
+      <div class="info-row">
+        <label>К оплате:</label>
+        <span class="val" id="modalAmount">0.00 ₸</span>
+      </div>
+      <div class="info-row">
+        <label>Договор:</label>
+        <span class="val-sm" id="modalContract">—</span>
+      </div>
+      <hr class="divider">
+
+      <!-- JS меняет класс (badge-card/badge-cash), иконку и текст -->
+      <div id="modalBadge" class="badge badge-card">
+        <span id="modalBadgeIcon">🏦</span>
+        <span id="modalBadgeText">Kaspi Bank</span>
+      </div>
+
+      <div class="hint" id="modalHint">
+        Клиент произвёл оплату на терминале. Подтвердите получение средств.
+      </div>
+
+      <!--
+        Нумпад — скрыт по умолчанию.
+        JS покажет его (display:block) только при выборе "Наличные".
+      -->
+      <div id="numpadSection" style="display:none">
+        <div class="info-row">
+          <label>Внесено:</label>
+          <span class="val" id="numpadDisplay">0.00</span>
+        </div>
+        <div class="info-row">
+          <label>Сдача:</label>
+          <span class="val" id="numpadChange" style="color:var(--green)">0.00</span>
+        </div>
+        <!--
+          Раскладка нумпада (4 колонки):
+          7  8  9  [Enter — 2 строки]
+          4  5  6
+          1  2  3  [Enter продолжается]
+          0  ,  C
+        -->
+        <div class="numpad">
+          <div class="nk" onclick="np('7')">7</div>
+          <div class="nk" onclick="np('8')">8</div>
+          <div class="nk" onclick="np('9')">9</div>
+          <div class="nk enter" onclick="submitPayment()">Enter</div>
+          <div class="nk" onclick="np('4')">4</div>
+          <div class="nk" onclick="np('5')">5</div>
+          <div class="nk" onclick="np('6')">6</div>
+          <div class="nk" onclick="np('1')">1</div>
+          <div class="nk" onclick="np('2')">2</div>
+          <div class="nk" onclick="np('3')">3</div>
+          <div class="nk" onclick="np('0')">0</div>
+          <div class="nk" onclick="np(',')"> , </div>
+          <div class="nk clr" onclick="np('C')">C (Backsp.)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeConfirm()">Отмена</button>
+      <!-- При наличных эта кнопка скрыта — там Enter в нумпаде -->
+      <button class="btn-confirm" id="confirmBtn" onclick="submitPayment()">
+        ✓ Подтвердить оплату
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  // Переменные состояния
+  let selectedMethod = '';  // 'kaspi', 'halyk' или 'cash'
+  let npValue = '';          // строка набранная на нумпаде
+  let toPayAmt = 0;          // сумма к оплате
+
+  // Словарь методов — ключ совпадает с тем что уходит в POST
+  const METHODS = {
+    kaspi: { label: 'Kaspi Bank', icon: '🏦', badge: 'badge-card', title: 'Оплата через Kaspi Bank', cash: false },
+    halyk: { label: 'Halyk Bank', icon: '💳', badge: 'badge-card', title: 'Оплата через Halyk Bank', cash: false },
+    cash:  { label: 'Наличные',   icon: '💵', badge: 'badge-cash', title: 'Оплата наличными',        cash: true  },
+  };
+
+  // Вызывается при клике на кнопку метода
+  function selectMethod(m) {
+    selectedMethod = m;
+    // Записываем в скрытое поле — Django получит это в request.POST
+    document.getElementById('methodInput').value = m;
+
+    // Убираем активный класс со всех кнопок
+    ['kaspi', 'halyk', 'cash'].forEach(k => {
+      document.getElementById('btn-' + k).className = 'method-btn';
+    });
+
+    // Добавляем активный класс на выбранную (разный цвет для наличных)
+    const cls = m === 'cash' ? 'active-cash' : 'active';
+    document.getElementById('btn-' + m).className = 'method-btn ' + cls;
+  }
+
+  // Вызывается при клике "Продолжить" — проверяет поля и открывает модалку
+  function openConfirm() {
+    const sel = document.getElementById('rentalSelect');
+    const amt = document.getElementById('amountInput');
+
+    // Простая валидация перед открытием модалки
+    if (!sel.value)      { alert('Выберите договор'); return; }
+    if (!selectedMethod) { alert('Выберите метод оплаты'); return; }
+    if (!amt.value || parseFloat(amt.value) <= 0) { alert('Укажите сумму'); return; }
+
+    toPayAmt = parseFloat(amt.value);
+    const info = METHODS[selectedMethod];
+
+    // Заполняем модалку данными из формы
+    document.getElementById('modalTitle').textContent    = info.title;
+    document.getElementById('modalAmount').textContent   = fmt(toPayAmt) + ' ₸';
+    document.getElementById('modalContract').textContent = sel.options[sel.selectedIndex].text;
+
+    // Меняем бейдж (класс цвета + иконка + текст)
+    document.getElementById('modalBadge').className      = 'badge ' + info.badge;
+    document.getElementById('modalBadgeIcon').textContent = info.icon;
+    document.getElementById('modalBadgeText').textContent = info.label;
+
+    if (info.cash) {
+      // Режим НАЛИЧНЫЕ — показываем нумпад
+      npValue = String(Math.round(toPayAmt));  // предзаполняем суммой к оплате
+      document.getElementById('numpadSection').style.display = 'block';
+      document.getElementById('modalHint').textContent = 'Введите сумму наличных, полученных от клиента.';
+      document.getElementById('confirmBtn').style.display = 'none';  // Enter заменяет кнопку
+      updateNp();
+    } else {
+      // Режим ТЕРМИНАЛ (Kaspi / Halyk)
+      document.getElementById('numpadSection').style.display = 'none';
+      document.getElementById('modalHint').textContent = 'Клиент произвёл оплату на терминале. Подтвердите получение средств.';
+      document.getElementById('confirmBtn').style.display = '';
+    }
+
+    // Показываем модалку — добавляем класс .open
+    document.getElementById('confirmModal').classList.add('open');
+  }
+
+  // Закрывает модалку — убирает класс .open
+  function closeConfirm() {
+    document.getElementById('confirmModal').classList.remove('open');
+  }
+
+  // Финальная отправка формы (вызывается из кнопки "Подтвердить" или Enter нумпада)
+  function submitPayment() {
+    if (selectedMethod === 'cash') {
+      // Заменяем запятую на точку (в КЗ десятичный разделитель — запятая)
+      const paid = parseFloat(npValue.replace(',', '.')) || 0;
+      if (paid < toPayAmt) {
+        alert('Внесённая сумма меньше суммы к оплате!');
+        return;
+      }
+    }
+    document.getElementById('paymentForm').submit();
+  }
+
+  // Обработчик кнопок нумпада
+  function np(key) {
+    if (key === 'C') {
+      npValue = npValue.slice(0, -1);          // удалить последний символ
+    } else if (key === ',') {
+      if (!npValue.includes(',')) npValue += ','; // запятую только один раз
+    } else {
+      if (npValue.length < 12) npValue += key;
+    }
+    updateNp();
+  }
+
+  // Обновляет дисплей нумпада и считает сдачу
+  function updateNp() {
+    const paid   = parseFloat(npValue.replace(',', '.')) || 0;
+    const change = paid - toPayAmt;
+
+    document.getElementById('numpadDisplay').textContent = npValue || '0';
+    document.getElementById('numpadChange').textContent  = fmt(Math.max(0, change));
+    // Enter полупрозрачный если денег не хватает
+    document.querySelector('.nk.enter').style.opacity = paid >= toPayAmt ? '1' : '0.45';
+  }
+
+  // Форматирование числа: 52450 → "52 450,00"
+  function fmt(n) {
+    return Number(n).toLocaleString('ru-KZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // Автозаполнение суммы при выборе договора из data-amount атрибута
+  document.getElementById('rentalSelect').addEventListener('change', function() {
+    const amt = this.options[this.selectedIndex].getAttribute('data-amount');
+    if (amt && parseFloat(amt) > 0) {
+      document.getElementById('amountInput').value = parseFloat(amt).toFixed(2);
+    }
+  });
+</script>
+</body>
+</html>
