@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 # OpenRouter fallback models (stable)
 OPENROUTER_MODELS = [
-    'mistralai/mistral-7b-instruct',
+    'mistralai/mistral-7b-instruct:free',
     'meta-llama/llama-3.1-8b-instruct',
     'gryphe/mythomax-l2-13b',
 ]
@@ -633,33 +633,44 @@ def ai_chat_view(request):
                 'content': msg['content'],
             })
 
-        req_data = _json.dumps({
-            'model': OPENROUTER_MODELS[0],
-            'messages': openrouter_messages,
-            'temperature': 0.5,
-            'max_tokens': 500,
-        }).encode('utf-8')
+        last_error = None
+        reply = None
 
-        req = urllib.request.Request(
-            'https://openrouter.ai/api/v1/chat/completions',
-            data=req_data,
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {api_key}',
-                'HTTP-Referer': 'https://localhost',
-                'X-Title': 'Ski Rent CRM',
-            },
-            method='POST',
-        )
+        for model in OPENROUTER_MODELS:
+            try:
+                req_data = _json.dumps({
+                    'model': model,
+                    'messages': openrouter_messages,
+                    'temperature': 0.5,
+                    'max_tokens': 500,
+                }).encode('utf-8')
 
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = _json.loads(resp.read().decode('utf-8'))
+                req = urllib.request.Request(
+                    'https://openrouter.ai/api/v1/chat/completions',
+                    data=req_data,
+                    headers={
+                        'Content-Type': 'application/json',
+                        'Authorization': f'Bearer {api_key}',
+                        'HTTP-Referer': 'https://localhost',
+                        'X-Title': 'Ski Rent CRM',
+                    },
+                    method='POST',
+                )
 
-        choices = result.get('choices', [])
-        if choices:
-            reply = choices[0].get('message', {}).get('content', '').strip()
-        else:
-            reply = 'Нет ответа.'
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    result = _json.loads(resp.read().decode('utf-8'))
+
+                choices = result.get('choices', [])
+                if choices:
+                    reply = choices[0].get('message', {}).get('content', '').strip()
+                    break
+
+            except urllib.error.HTTPError as e:
+                last_error = e
+                continue
+
+        if not reply:
+            raise last_error
 
         return JsonResponse({'reply': reply})
 

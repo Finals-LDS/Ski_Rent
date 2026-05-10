@@ -171,6 +171,7 @@
 <script>
 let aiHistory = [];
 const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+let currentCategory = 'main';
 
 const AI_SUGGESTIONS = {
   main: [
@@ -213,6 +214,7 @@ const AI_SUGGESTIONS = {
 function setCategory(el, cat) {
   document.querySelectorAll('.ai-cat-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
+  currentCategory = cat;
   renderSuggestions(AI_SUGGESTIONS[cat] || []);
 }
 
@@ -269,8 +271,6 @@ async function sendAiMsg() {
   if (!text) return;
 
   input.value = ''; input.style.height = 'auto';
-  document.getElementById('ai-cat-tabs').style.display = 'none';
-  document.getElementById('ai-suggestions').style.display = 'none';
 
   addMsg(text, 'user');
   aiHistory.push({ role: 'user', content: text });
@@ -308,6 +308,7 @@ async function sendAiMsg() {
     addMsg('Ошибка соединения. Проверьте интернет и попробуйте позже.', 'bot');
   } finally {
     document.getElementById('ai-chat-send').disabled = false;
+    renderSuggestions(AI_SUGGESTIONS[currentCategory] || []);
     input.focus();
   }
 }

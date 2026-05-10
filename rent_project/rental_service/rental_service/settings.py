@@ -199,11 +199,13 @@ if certifi is not None:
     os.environ.setdefault("SSL_CERT_FILE", certifi.where())
     os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
 
+# ─────────────────────────────────────────
+#  AI Assistant (OpenRouter)
+# ─────────────────────────────────────────
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
 
-# ─────────────────────────────────────────
-#  AI Assistant (Решид) — Groq Cloud
-# ─────────────────────────────────────────
-# Получить ключ: https://console.groq.com/keys
-# В .env: GROQ_API_KEY=gsk_...
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL   = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+OPENROUTER_MODELS = [
+    "mistralai/mistral-7b-instruct:free",
+    "meta-llama/llama-3.1-8b-instruct",
+    "gryphe/mythomax-l2-13b",
+]
