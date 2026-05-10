@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import Rental, RentalItem
-from payments.models import Payment
+
+from .models import Contract, Discount, PriceModifier, Rental, RentalItem, Signature
 
 
 class RentalItemSerializer(serializers.ModelSerializer):
@@ -16,7 +16,26 @@ class RentalSerializer(serializers.ModelSerializer):
         model = Rental
         fields = '__all__'
 
-class PaymentSerializer(serializers.ModelSerializer):
+
+class ContractSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Payment
+        model = Contract
+        fields = '__all__'
+
+
+class SignatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Signature
+        fields = '__all__'
+
+
+class DiscountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Discount
+        fields = '__all__'
+
+
+class PriceModifierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PriceModifier
         fields = '__all__'

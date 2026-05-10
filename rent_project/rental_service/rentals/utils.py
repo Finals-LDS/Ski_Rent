@@ -1,13 +1,25 @@
-import re
+"""Утилиты, переиспользуемые в rentals и других приложениях."""
 import logging
+import re
 
 from django.conf import settings
+from django.db.models import Sum
+from django.utils import timezone
+
 
 logger = logging.getLogger(__name__)
 
 
+ACTIVE_RENTAL_STATUSES = ("open", "booked", "rented")
+
+
+# ─────────────────────────────────────────
+#  Phone normalization
+# ─────────────────────────────────────────
 def normalize_phone(phone: str) -> str:
     """Нормализует телефон к формату +7XXXXXXXXXX."""
+    if not phone:
+        return ""
     digits = re.sub(r'\D', '', phone)
     if digits.startswith('8') and len(digits) == 11:
         digits = '7' + digits[1:]
@@ -18,6 +30,9 @@ def normalize_phone(phone: str) -> str:
     return '+' + digits if digits else phone
 
 
+# ─────────────────────────────────────────
+#  SMS (smsc.kz)
+# ─────────────────────────────────────────
 def send_sms(phone: str, message: str):
     """
     Отправляет SMS через smsc.kz.
@@ -32,7 +47,7 @@ def send_sms(phone: str, message: str):
 
     strict_real_send = bool(getattr(settings, "SMS_STRICT_REAL_SEND", True))
 
-    # ── Попытка реальной отправки через smsc.kz ──────────────────────────────
+    # ── Попытка реальной отправки через smsc.kz ─────────────────────────
     if login and password:
         try:
             import requests as _req
@@ -74,7 +89,7 @@ def send_sms(phone: str, message: str):
                 return True, None
             return False, str(exc)
 
-    # ── Нет учётных данных ───────────────────────────────────────────────────
+    # ── Нет учётных данных ─────────────────────────────────────────────
     if getattr(settings, 'DEBUG', False) and not strict_real_send:
         logger.warning('[SMS-CONSOLE] %s -> %s', phone, message)
         return True, None
@@ -91,7 +106,6 @@ def build_contract_sms(contract) -> str:
     client = contract.client
     rental = contract.rental
 
-    # Список снаряжения из аренды
     items = rental.items.select_related('equipment').all()
     if items.exists():
         equipment_lines = ', '.join(
@@ -101,11 +115,9 @@ def build_contract_sms(contract) -> str:
     else:
         equipment_lines = 'снаряжение'
 
-    # Форматируем даты
     start = rental.start_date.strftime('%d.%m.%Y') if rental.start_date else '—'
     end   = rental.end_date.strftime('%d.%m.%Y')   if rental.end_date   else '—'
 
-    # Форматируем сумму
     price = f'{rental.total_price:,.0f} ₸'.replace(',', ' ') if rental.total_price else '—'
 
     text = (
@@ -128,3 +140,47 @@ def build_contract_sms(contract) -> str:
         f'Номер договора: #{contract.id}'
     )
     return text
+
+
+# ─────────────────────────────────────────
+#  Rental / inventory housekeeping
+# ─────────────────────────────────────────
+def close_expired_rentals():
+    """Переводит просроченные аренды в статус 'completed'."""
+    from .models import Rental
+    today = timezone.localdate()
+    Rental.objects.filter(
+        status__in=ACTIVE_RENTAL_STATUSES,
+        end_date__lt=today,
+    ).update(status="completed")
+
+
+def recalculate_inventory_counters():
+    """Пересчитывает поля quantity_rented по активным арендам."""
+    from equipment.models import Equipment, EquipmentSize
+    from .models import RentalItem
+
+    Equipment.objects.update(quantity_rented=0)
+    EquipmentSize.objects.update(quantity_rented=0)
+
+    rented_by_equipment = (
+        RentalItem.objects.filter(rental__status__in=ACTIVE_RENTAL_STATUSES)
+        .values("equipment_id")
+        .annotate(total=Sum("quantity"))
+    )
+    for row in rented_by_equipment:
+        Equipment.objects.filter(pk=row["equipment_id"]).update(
+            quantity_rented=row["total"] or 0
+        )
+
+    rented_by_size = (
+        RentalItem.objects.filter(rental__status__in=ACTIVE_RENTAL_STATUSES)
+        .exclude(size__isnull=True)
+        .exclude(size="")
+        .values("equipment_id", "size")
+        .annotate(total=Sum("quantity"))
+    )
+    for row in rented_by_size:
+        EquipmentSize.objects.filter(
+            equipment_id=row["equipment_id"], size=row["size"]
+        ).update(quantity_rented=row["total"] or 0)

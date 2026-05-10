@@ -298,21 +298,21 @@
   <div class="alert alert-err">{{ msg_err }}</div>
   {% endif %}
 
-  <!-- ── Anthropic API Key ── -->
+  <!-- ── Groq API Key ── -->
   <div class="settings-card">
     <div class="settings-card-title">
       ИИ-ассистент Решид
-      {% if has_anthropic_key %}
+      {% if has_groq_key %}
         <span class="status-badge badge-ok">✓ Ключ настроен</span>
       {% else %}
         <span class="status-badge badge-no">✗ Не настроен</span>
       {% endif %}
     </div>
     <div class="settings-card-desc">
-      Для работы ИИ-ассистента нужен API-ключ Anthropic. Кассиры и менеджеры смогут задавать вопросы прямо в интерфейсе — иконка чата в правом нижнем углу.
+      Для работы ИИ-ассистента нужен API-ключ Groq. Кассиры и менеджеры смогут задавать вопросы прямо в интерфейсе — иконка чата в правом нижнем углу.
     </div>
 
-    {% if has_anthropic_key %}
+    {% if has_groq_key %}
     <div style="background:rgba(63,185,80,0.06);border:1px solid rgba(63,185,80,0.2);border-radius:10px;padding:12px 16px;font-size:13px;margin-bottom:16px;">
       <span style="color:var(--text-muted)">Текущий ключ:</span>
       <code style="color:var(--green);font-family:monospace;margin-left:8px;">{{ masked_key }}</code>
@@ -321,15 +321,15 @@
 
     <form method="post">
       {% csrf_token %}
-      <input type="hidden" name="action" value="save_anthropic_key">
+      <input type="hidden" name="action" value="save_groq_key">
       <div class="field-row">
-        <label class="field-label">API-ключ Anthropic</label>
-        <input type="password" name="anthropic_key" class="field-input"
-               placeholder="sk-ant-api03-..."
+        <label class="field-label">API-ключ Groq</label>
+        <input type="password" name="groq_key" class="field-input"
+               placeholder="gsk_..."
                autocomplete="new-password">
         <div class="field-note">
-          Получите ключ на <a href="https://console.anthropic.com/" target="_blank" style="color:var(--accent)">console.anthropic.com</a>
-          → API Keys → Create Key. Ключ начинается с <code>sk-ant-</code>
+          Получите ключ на <a href="https://console.groq.com/keys" target="_blank" style="color:var(--accent)">console.groq.com/keys</a>
+          → Create API Key. Ключ начинается с <code>gsk_</code>
         </div>
       </div>
       <div class="btn-row">
@@ -337,28 +337,27 @@
       </div>
     </form>
 
-    {% if has_anthropic_key %}
+    {% if has_groq_key %}
     <form method="post" style="margin-top:10px;">
       {% csrf_token %}
-      <input type="hidden" name="action" value="test_anthropic_key">
+      <input type="hidden" name="action" value="test_groq_key">
       <button type="submit" class="btn btn-test">Проверить соединение</button>
     </form>
     <form method="post" style="margin-top:8px;">
       {% csrf_token %}
-      <input type="hidden" name="action" value="save_anthropic_key">
-      <input type="hidden" name="anthropic_key" value="">
+      <input type="hidden" name="action" value="save_groq_key">
+      <input type="hidden" name="groq_key" value="">
       <button type="submit" class="btn btn-clear" onclick="return confirm('Удалить ключ?')">Удалить ключ</button>
     </form>
     {% endif %}
 
-    {% if not has_anthropic_key %}
+    {% if not has_groq_key %}
     <div class="how-to">
       <h4>Как получить API-ключ</h4>
       <ol>
-        <li>Откройте <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a></li>
+        <li>Откройте <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a></li>
         <li>Зарегистрируйтесь или войдите в аккаунт</li>
-        <li>Перейдите в раздел <strong>API Keys</strong></li>
-        <li>Нажмите <strong>Create Key</strong>, скопируйте ключ</li>
+        <li>Нажмите <strong>Create API Key</strong>, скопируйте ключ</li>
         <li>Вставьте ключ в поле выше и нажмите «Сохранить»</li>
       </ol>
     </div>

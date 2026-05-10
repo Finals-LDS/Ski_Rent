@@ -1,7 +1,6 @@
 from django.contrib import admin
-from .models import (Rental, RentalItem, Discount, PriceModifier, Contract, Signature,
-)
-from payments.models import Payment
+
+from .models import Contract, Discount, PriceModifier, Rental, Signature
 
 
 @admin.register(Rental)
@@ -26,4 +25,6 @@ class SignatureAdmin(admin.ModelAdmin):
     search_fields   = ('contract__id', 'operator__username')
     readonly_fields = ('signed_at',)
 
+
 admin.site.register(Discount)
+admin.site.register(PriceModifier)

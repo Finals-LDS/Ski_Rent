@@ -1,96 +1,14 @@
-from datetime import date
+"""Бизнес-логика для аренд и договоров."""
+import logging
 
-from django.db.models import Sum
-from django.utils import timezone
-
-from equipment.models import Equipment
-
-from .models import Rental, RentalItem, Contract
+from .models import Contract
 
 
-RENTAL_ACTIVE = ("open", "booked", "rented")
-
-
-def get_dashboard_stats(date_from=None, date_to=None):
-    rentals = Rental.objects.all()
-    if date_from:
-        rentals = rentals.filter(start_date__gte=date_from)
-    if date_to:
-        rentals = rentals.filter(end_date__lte=date_to)
-
-    today = date.today()
-
-    return {
-        "total_revenue": rentals.aggregate(Sum("total_price"))["total_price__sum"] or 0,
-        "active_rentals": rentals.filter(status__in=RENTAL_ACTIVE).count(),
-        "completed_rentals": rentals.filter(status="completed").count(),
-        "overdue_rentals": rentals.filter(
-            end_date__lt=today,
-            status__in=RENTAL_ACTIVE,
-        ).count(),
-    }
-
-
-def get_inventory_stats():
-    equipment = Equipment.objects.select_related("type")
-    data = []
-
-    for item in equipment:
-        in_rent = RentalItem.objects.filter(
-            equipment=item,
-            rental__status__in=RENTAL_ACTIVE,
-        ).count()
-
-        data.append(
-            {
-                "name": item.name,
-                "total": 1,
-                "available": 1 - in_rent,
-                "in_rent": in_rent,
-            }
-        )
-
-    return data
-
-
-def get_category_stats():
-    qs = Equipment.objects.select_related("type")
-    result = {}
-
-    for item in qs:
-        category = item.type.name
-
-        if category not in result:
-            result[category] = {
-                "total": 0,
-                "in_rent": 0,
-                "available": 0,
-            }
-
-        result[category]["total"] += 1
-
-        is_rented = RentalItem.objects.filter(
-            equipment=item,
-            rental__status__in=RENTAL_ACTIVE,
-        ).exists()
-
-        if is_rented:
-            result[category]["in_rent"] += 1
-        else:
-            result[category]["available"] += 1
-
-    return result
-
-
-def get_top_clients():
-    return (
-        Rental.objects.values("client__full_name")
-        .annotate(total_spent=Sum("total_price"))
-        .order_by("-total_spent")[:5]
-    )
+logger = logging.getLogger(__name__)
 
 
 def generate_contract_text(client, rental):
+    """Текст договора (используется для коротких SMS / превью)."""
     items = rental.items.select_related('equipment').all()
     if items.exists():
         lines = []
@@ -123,14 +41,49 @@ def generate_contract_text(client, rental):
     3. Оплата производится заранее.
 
     Подтверждая договор, вы соглашаетесь со всеми условиями.
-    
-    
     """
 
 
 def can_start_rental(rental):
+    """Можно ли начинать аренду — договор должен быть подписан."""
     try:
         contract = rental.contract
         return contract.is_signed
     except Contract.DoesNotExist:
+        return False
+
+
+def send_contract_pdf_email(contract):
+    """Отправить PDF договора на email клиента. Безопасно при ошибках."""
+    try:
+        from django.conf import settings
+        from django.core.mail import EmailMultiAlternatives
+
+        from .pdf_utils import generate_contract_pdf
+
+        if not contract.client.email:
+            return False
+
+        pdf_bytes = generate_contract_pdf(contract)
+        subject = f'Договор аренды № {contract.rental.contract_number} — Ski Rent'
+        body = (
+            f'Уважаемый(ая) {contract.client.full_name},\n\n'
+            f'Ваш договор аренды № {contract.rental.contract_number} подписан.\n'
+            f'PDF-копия договора прикреплена к этому письму.\n\n'
+            f'С уважением,\nКоманда Ski Rent'
+        )
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[contract.client.email],
+        )
+        msg.attach(
+            f'contract_{contract.rental.contract_number}.pdf',
+            pdf_bytes, 'application/pdf',
+        )
+        msg.send(fail_silently=True)
+        return True
+    except Exception as exc:
+        logger.warning('send_contract_pdf_email failed: %s', exc)
         return False

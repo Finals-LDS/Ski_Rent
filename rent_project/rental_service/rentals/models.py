@@ -1,22 +1,11 @@
 from decimal import Decimal
-from django.db import models
-from django.core.exceptions import ValidationError
-from clients.models import Client
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import models
+
+from clients.models import Client
 from equipment.models import Equipment
-import uuid
-from django.utils import timezone
-from datetime import timedelta
-
-class SmsOTP(models.Model):
-    contract_id = models.IntegerField()
-    phone = models.CharField(max_length=20)
-    code = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_used = models.BooleanField(default=False)
-
-    def is_expired(self):
-        return timezone.now() > self.created_at + timedelta(seconds=120)
 
 
 class Rental(models.Model):
@@ -38,12 +27,15 @@ class Rental(models.Model):
     )
 
     contract_number = models.CharField(max_length=20, unique=True, blank=True)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='rentals', null=True, blank=True)
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE,
+        related_name='rentals', null=True, blank=True,
+    )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    
+
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -54,11 +46,10 @@ class Rental(models.Model):
 
     def generate_contract_number(self):
         # Используем max(id)+1 вместо count(), чтобы избежать
-        # дублирования при удалённых записях
+        # дублирования при удалённых записях.
         last = Rental.objects.order_by('-id').values_list('id', flat=True).first()
         seq = (last + 1) if last else 1
         candidate = f'C{seq:03d}'
-        # Гарантируем уникальность в случае коллизий
         while Rental.objects.filter(contract_number=candidate).exists():
             seq += 1
             candidate = f'C{seq:03d}'
@@ -74,7 +65,7 @@ class Rental(models.Model):
         total = Decimal('0.00')
         for item in self.items.all():
             total += Decimal(item.days) * item.price_per_day * Decimal(item.quantity)
-        
+
         if self.discount:
             discount_amount = total * Decimal(self.discount.percent) / Decimal('100')
             total -= discount_amount
@@ -110,6 +101,7 @@ class RentalItem(models.Model):
         if self.quantity < 1:
             self.quantity = 1
         super().save(*args, **kwargs)
+        # Recalculate parent rental total
         rental = self.rental
         rental.total_price = rental.calculate_total_price()
         rental.save(update_fields=['total_price'])
@@ -138,15 +130,15 @@ class PriceModifier(models.Model):
 
     def __str__(self):
         return 'Модификаторы цены'
-    
+
 
 class Contract(models.Model):
     STATUS_CHOICES = [
         ('draft',       'Черновик'),
         ('sent',        'Отправлен'),
-        ('signed_card', 'Подписан через ЭЦП'),   # ← новый (карт-ридер)
-        ('signed_sms',  'Подписан через SMS'),    # ← новый (SMS)
-        ('accepted',    'Принят'),                # ← старый (совместимость)
+        ('signed_card', 'Подписан через ЭЦП'),
+        ('signed_sms',  'Подписан через SMS'),
+        ('accepted',    'Принят'),
         ('rejected',    'Отклонён'),
     ]
 
@@ -167,45 +159,37 @@ class Contract(models.Model):
 
 
 class Signature(models.Model):
-    METHOD_SMS  = 'sms'
+    METHOD_SMS = 'sms'
     METHOD_CARD = 'card'
     METHOD_CHOICES = [
         (METHOD_CARD, 'ЭЦП (карт-ридер / NCALayer)'),
         (METHOD_SMS,  'SMS OTP'),
     ]
 
-    contract   = models.ForeignKey(
+    contract = models.ForeignKey(
         Contract, on_delete=models.CASCADE,
         related_name='signatures', verbose_name='Договор',
     )
     operator = models.ForeignKey(
-
         settings.AUTH_USER_MODEL,
-
         on_delete=models.SET_NULL,
-
-        null=True,
-
-        blank=True,
-
+        null=True, blank=True,
         related_name='signatures',
-
         verbose_name='Оператор',
-
     )
-    method     = models.CharField(
+    method = models.CharField(
         max_length=10, choices=METHOD_CHOICES,
         default=METHOD_CARD, verbose_name='Способ подписания',
     )
     # Для карт-ридера: base64-XML из NCALayer
     # Для SMS: хэш OTP или метка
     raw_signature = models.TextField(verbose_name='Данные подписи (raw)')
-    signed_at     = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время')
+    signed_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время')
 
     class Meta:
-        verbose_name        = 'Подпись'
+        verbose_name = 'Подпись'
         verbose_name_plural = 'Подписи'
-        ordering            = ['-signed_at']
+        ordering = ['-signed_at']
 
     def __str__(self):
         return f'[{self.get_method_display()}] Договор #{self.contract_id} — {self.signed_at:%d.%m.%Y %H:%M}'

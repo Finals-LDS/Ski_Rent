@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('rentals', '008_rentalitem_size_quantity'),
+        ('rentals', '0008_rentalitem_size_quantity'),
     ]
 
     operations = [
