@@ -1,24 +1,32 @@
 """
-Генерация PDF договора аренды снаряжения.
+Генерация PDF договора проката горнолыжного инвентаря.
 Использует reportlab. Установить: pip install reportlab
 
-Текст договора и оформление вынесены в константы ниже,
-чтобы его было удобно редактировать без правки кода.
+Особенности:
+- Шрифт DejaVuSans (с кириллицей) лежит в rentals/assets/fonts/ и едет
+  вместе с кодом — никакого скачивания, гарантированно работает на App
+  Engine. Положите DejaVuSans.ttf и DejaVuSans-Bold.ttf в эту папку.
+- Текст договора, реквизиты Арендодателя и оформление вынесены в константы
+  ниже — правьте без изменения кода.
+- Поддержка вставки печати (см. STAMP_PATH ниже).
 """
 import io
+import logging
 import os
 from datetime import date
+from pathlib import Path
 
 try:
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.platypus import (
-        HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+        HRFlowable, Image, KeepTogether, Paragraph, SimpleDocTemplate,
+        Spacer, Table, TableStyle,
     )
 
     REPORTLAB_AVAILABLE = True
@@ -26,258 +34,417 @@ except ImportError:
     REPORTLAB_AVAILABLE = False
 
 
-# ═════════════════════════════════════════════════════════════════════════
-#  СОДЕРЖАНИЕ ДОГОВОРА — все тексты в одном месте, легко править
-# ═════════════════════════════════════════════════════════════════════════
-
-COMPANY_NAME = 'Ski Rent'
-COMPANY_NAME_FULL = 'Ski Rent (далее — «Компания»)'
-COMPANY_LOCATION = 'Алматы'
-
-CONTRACT_TITLE = 'ДОГОВОР АРЕНДЫ СНАРЯЖЕНИЯ'
-
-# Названия разделов договора
-SECTION_PARTIES   = '1. СТОРОНЫ ДОГОВОРА'
-SECTION_SUBJECT   = '2. ПРЕДМЕТ ДОГОВОРА'
-SECTION_PERIOD    = '3. СРОК АРЕНДЫ'
-SECTION_TERMS     = '4. УСЛОВИЯ АРЕНДЫ'
-SECTION_SIGNS     = '5. ПОДПИСИ СТОРОН'
-
-# Подписи к строкам
-LABEL_LANDLORD = 'Арендодатель'
-LABEL_TENANT   = 'Арендатор'
-LABEL_TOTAL    = 'ИТОГО:'
-LABEL_DATE     = 'Дата'
-
-# Заголовки колонок таблицы снаряжения
-TABLE_HEADERS = ['Снаряжение', 'Дней', 'Цена/день', 'Итого']
-
-# Текст пункта о предмете договора
-SUBJECT_TEXT = (
-    'Компания передаёт Арендатору во временное пользование горнолыжное снаряжение, '
-    'указанное в перечне ниже, а Арендатор обязуется принять его, использовать по '
-    'назначению и вернуть в исправном состоянии.'
-)
-
-# Условия аренды (нумеруются автоматически 4.1, 4.2, ...)
-CONTRACT_CONDITIONS = [
-    'Арендатор обязуется использовать снаряжение только по его прямому назначению.',
-    'В случае повреждения или утраты снаряжения Арендатор возмещает его полную рыночную стоимость.',
-    'Снаряжение возвращается в чистом виде в срок, указанный в п. 3.',
-    'При задержке возврата снаряжения начисляется пени в размере 1% от стоимости '
-    'аренды за каждый день просрочки.',
-    'Компания не несёт ответственности за травмы, полученные при использовании снаряжения.',
-    'Арендатор подтверждает своё ознакомление с настоящим договором и согласие с его условиями.',
-]
-
-# Человекочитаемые названия статусов договора
-STATUS_TEXT_MAP = {
-    'signed_sms':  '✓ Подписан через SMS OTP',
-    'signed_card': '✓ Подписан через ЭЦП',
-    'accepted':    '✓ Принят',
-    'draft':       'Черновик',
-    'sent':        'Отправлен, ожидает подписи',
-    'rejected':    '✗ Отклонён',
-}
-
-# Шрифт с поддержкой кириллицы
-FONT_PATHS = [
-    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-    '/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf',
-    '/usr/share/fonts/TTF/DejaVuSans.ttf',
-]
-
-# Размеры/отступы документа (см)
-PAGE_MARGIN_CM = 2
-
-# Цвета оформления
-COLOR_TABLE_HEAD_BG = '#F0F4FF'
-COLOR_TABLE_GRID    = '#DDDDDD'
-COLOR_TABLE_TOTAL   = '#333333'
-COLOR_HR            = '#CCCCCC'
-COLOR_SUBTITLE      = '#555555'
-COLOR_SMALL_TEXT    = '#777777'
+logger = logging.getLogger(__name__)
 
 
 # ═════════════════════════════════════════════════════════════════════════
-#  Регистрация шрифта (один раз)
+#  РЕКВИЗИТЫ АРЕНДОДАТЕЛЯ — заполните своими данными
 # ═════════════════════════════════════════════════════════════════════════
+LANDLORD_LEGAL_FORM = 'ИП'                       # ИП / ТОО
+LANDLORD_NAME       = 'Ski Rent'
+LANDLORD_CITY       = 'Алматы'
+LANDLORD_ADDRESS    = 'г. Алматы, ул. ___________________'
+LANDLORD_PHONE      = '+7 (___) ___-__-__'
+LANDLORD_BIN_IIN    = '_____________'             # БИН/ИИН арендодателя
+
+# Финансовые условия
+DEPOSIT_AMOUNT_TEXT = 'согласно прайс-листу'      # либо «10 000»
+LATE_RETURN_RATE    = 'согласно действующему тарифу'
+RETURN_ADDRESS      = LANDLORD_ADDRESS             # адрес возврата
+
+# Заголовок
+CONTRACT_TITLE = 'ДОГОВОР ПРОКАТА ГОРНОЛЫЖНОГО ИНВЕНТАРЯ'
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  ПЕЧАТЬ (опционально)
+# ═════════════════════════════════════════════════════════════════════════
+# Положите PNG (лучше с прозрачным фоном) в rentals/assets/stamp.png
+# Если файла нет — печать просто не отрисуется, без ошибок.
+STAMP_PATH       = Path(__file__).parent / 'assets' / 'stamp.png'
+STAMP_WIDTH_CM   = 3.5    # размер печати в PDF
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  ШРИФТ С ПОДДЕРЖКОЙ КИРИЛЛИЦЫ — лежит прямо в репо
+# ═════════════════════════════════════════════════════════════════════════
+# Шрифт хранится в rentals/assets/fonts/. Скачайте один раз
+# (см. инструкцию в комментариях к проекту):
+#   curl -L -o DejaVuSans.ttf \\
+#     "https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@version_2_37/ttf/DejaVuSans.ttf"
+#   curl -L -o DejaVuSans-Bold.ttf \\
+#     "https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@version_2_37/ttf/DejaVuSans-Bold.ttf"
+FONTS_DIR = Path(__file__).parent / 'assets' / 'fonts'
+
 
 def _register_fonts():
-    """Регистрирует шрифт с поддержкой кириллицы. Возвращает (normal, bold)."""
-    for path in FONT_PATHS:
+    """
+    Регистрирует кириллический шрифт. Возвращает (normal_name, bold_name).
+
+    Сначала пробует DejaVu из репо (rentals/assets/fonts/), затем системные
+    пути (Linux). Если ничего не нашлось — Helvetica + предупреждение в лог.
+    """
+    # Если уже зарегистрировано в этом процессе — не дублируем
+    if 'DejaVuSans' in pdfmetrics.getRegisteredFontNames():
+        return 'DejaVuSans', 'DejaVuSans-Bold'
+
+    # 1. Шрифт из репо — самый надёжный способ
+    bundled_regular = FONTS_DIR / 'DejaVuSans.ttf'
+    bundled_bold    = FONTS_DIR / 'DejaVuSans-Bold.ttf'
+
+    if bundled_regular.exists():
+        try:
+            pdfmetrics.registerFont(TTFont('DejaVuSans', str(bundled_regular)))
+            if bundled_bold.exists():
+                pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', str(bundled_bold)))
+                logger.info('Loaded bundled DejaVu fonts from %s', FONTS_DIR)
+                return 'DejaVuSans', 'DejaVuSans-Bold'
+            logger.info('Loaded bundled DejaVuSans (no bold) from %s', FONTS_DIR)
+            return 'DejaVuSans', 'DejaVuSans'
+        except Exception as e:
+            logger.warning('Failed to register bundled DejaVu font: %s', e)
+
+    # 2. Системные пути (на Linux может стоять)
+    for path in (
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf',
+        '/usr/share/fonts/TTF/DejaVuSans.ttf',
+    ):
         if os.path.exists(path):
             try:
                 pdfmetrics.registerFont(TTFont('DejaVuSans', path))
                 bold_path = path.replace('DejaVuSans.ttf', 'DejaVuSans-Bold.ttf')
                 if os.path.exists(bold_path):
                     pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', bold_path))
+                    logger.info('Loaded system DejaVu fonts from %s', path)
                     return 'DejaVuSans', 'DejaVuSans-Bold'
                 return 'DejaVuSans', 'DejaVuSans'
-            except Exception:
+            except Exception as e:
+                logger.warning('Failed to register system font %s: %s', path, e)
                 continue
+
+    # 3. Совсем грустный фоллбэк — кириллица будет видна как квадраты
+    logger.error(
+        'DejaVu font NOT FOUND. Looked in: %s and standard system paths. '
+        'Cyrillic in PDF will appear as squares. '
+        'Place DejaVuSans.ttf and DejaVuSans-Bold.ttf in %s.',
+        FONTS_DIR, FONTS_DIR,
+    )
     return 'Helvetica', 'Helvetica-Bold'
 
 
 # ═════════════════════════════════════════════════════════════════════════
-#  Стили абзацев
+#  СТИЛИ
 # ═════════════════════════════════════════════════════════════════════════
 
 def _build_styles(normal_font, bold_font):
     return {
         'title': ParagraphStyle(
-            'ContractTitle', fontName=bold_font, fontSize=14,
-            alignment=TA_CENTER, spaceAfter=6,
+            'Title', fontName=bold_font, fontSize=13,
+            alignment=TA_CENTER, spaceAfter=4, leading=16,
         ),
-        'subtitle': ParagraphStyle(
-            'ContractSubtitle', fontName=normal_font, fontSize=10,
-            alignment=TA_CENTER, textColor=colors.HexColor(COLOR_SUBTITLE),
-            spaceAfter=14,
+        'city_date': ParagraphStyle(
+            'CityDate', fontName=normal_font, fontSize=10,
+            alignment=TA_LEFT, spaceAfter=10,
+        ),
+        'preamble': ParagraphStyle(
+            'Preamble', fontName=normal_font, fontSize=10,
+            leading=14, alignment=TA_JUSTIFY, spaceAfter=10,
+        ),
+        'h2': ParagraphStyle(
+            'H2', fontName=bold_font, fontSize=11,
+            spaceBefore=8, spaceAfter=4,
         ),
         'body': ParagraphStyle(
-            'ContractBody', fontName=normal_font, fontSize=10,
-            leading=16, alignment=TA_JUSTIFY, spaceAfter=8,
-        ),
-        'label': ParagraphStyle(
-            'ContractLabel', fontName=bold_font, fontSize=10, spaceAfter=4,
+            'Body', fontName=normal_font, fontSize=10,
+            leading=14, alignment=TA_JUSTIFY, spaceAfter=4,
         ),
         'small': ParagraphStyle(
-            'ContractSmall', fontName=normal_font, fontSize=9,
-            textColor=colors.HexColor(COLOR_SMALL_TEXT), spaceAfter=4,
+            'Small', fontName=normal_font, fontSize=9,
+            textColor=colors.HexColor('#777777'), spaceAfter=4,
         ),
     }
 
 
 # ═════════════════════════════════════════════════════════════════════════
-#  Сборка частей договора
+#  УТИЛИТЫ
 # ═════════════════════════════════════════════════════════════════════════
 
-def _build_header(styles, rental, today_str):
-    """Заголовок договора + номер."""
+def _format_date(d):
+    """01.05.2026 → '«01» мая 2026 г.'."""
+    if not d:
+        return '«____» ______________ 20___ г.'
+    months = [
+        '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+        'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+    ]
+    return f'«{d.day:02d}» {months[d.month]} {d.year} г.'
+
+
+def _items_summary(rental):
+    """Список позиций для п.1.1: 'Лыжи Atomic ×2 (р. 175); Ботинки ×1'."""
+    items = rental.items.select_related('equipment').all()
+    if not items.exists():
+        return '____________________'
+    parts = []
+    for it in items:
+        name = it.equipment.name
+        qty = f' ×{it.quantity}' if it.quantity > 1 else ''
+        size = f' (р. {it.size})' if it.size else ''
+        parts.append(f'{name}{qty}{size}')
+    return '; '.join(parts)
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  СБОРКА РАЗДЕЛОВ ДОГОВОРА
+# ═════════════════════════════════════════════════════════════════════════
+
+def _build_header(styles, sign_date_str):
     return [
         Paragraph(CONTRACT_TITLE, styles['title']),
-        Paragraph(f'№ {rental.contract_number} от {today_str} г.', styles['subtitle']),
-        HRFlowable(width="100%", thickness=1, color=colors.HexColor(COLOR_HR)),
-        Spacer(1, 14),
+        Paragraph(f'г. {LANDLORD_CITY}<br/>{sign_date_str}', styles['city_date']),
     ]
 
 
-def _build_parties(styles, client):
-    """Раздел 'Стороны договора'."""
+def _build_preamble(styles, client):
     return [
-        Paragraph(SECTION_PARTIES, styles['label']),
-        Paragraph(f'<b>{LABEL_LANDLORD}:</b> {COMPANY_NAME_FULL}', styles['body']),
         Paragraph(
-            f'<b>{LABEL_TENANT}:</b> {client.full_name} '
-            f'(документ: {client.document_id or "—"}, '
-            f'телефон: {client.phone or "—"}, '
-            f'email: {client.email or "—"})',
-            styles['body'],
+            f'{LANDLORD_LEGAL_FORM} <b>{LANDLORD_NAME}</b>, именуемый(ая) в дальнейшем '
+            f'«Арендодатель», с одной стороны, и гражданин(ка) '
+            f'<b>{client.full_name}</b>, ИИН {client.document_id or "____________________"}, '
+            f'удостоверение личности № {client.document_id or "____________________"}, '
+            f'именуемый(ая) в дальнейшем «Арендатор», с другой стороны, '
+            f'заключили настоящий договор о нижеследующем.',
+            styles['preamble'],
         ),
-        Spacer(1, 8),
     ]
 
 
-def _build_subject(styles):
-    """Раздел 'Предмет договора'."""
-    return [
-        Paragraph(SECTION_SUBJECT, styles['label']),
-        Paragraph(SUBJECT_TEXT, styles['body']),
-    ]
-
-
-def _build_items_table(rental, normal_font, bold_font):
-    """Таблица снаряжения + итог."""
-    data = [TABLE_HEADERS]
-    for item in rental.items.select_related('equipment').all():
-        data.append([
-            item.equipment.name,
-            str(item.days),
-            f'{item.price_per_day:,.0f} ₸',
-            f'{item.get_total():,.0f} ₸',
-        ])
-    data.append(['', '', LABEL_TOTAL, f'{rental.total_price:,.0f} ₸'])
-
-    t = Table(data, colWidths=[9 * cm, 2 * cm, 3 * cm, 3 * cm])
-    t.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, 0), bold_font),
-        ('FONTNAME', (0, 1), (-1, -1), normal_font),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(COLOR_TABLE_HEAD_BG)),
-        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
-        ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor(COLOR_TABLE_GRID)),
-        ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor(COLOR_TABLE_TOTAL)),
-        ('FONTNAME', (2, -1), (-1, -1), bold_font),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    return t
-
-
-def _build_period(styles, rental):
-    """Раздел 'Срок аренды'."""
-    start = rental.start_date.strftime('%d.%m.%Y') if rental.start_date else '—'
-    end   = rental.end_date.strftime('%d.%m.%Y')   if rental.end_date   else '—'
-    return [
-        Paragraph(SECTION_PERIOD, styles['label']),
-        Paragraph(
-            f'Начало: <b>{start}</b> &nbsp;&nbsp; Окончание: <b>{end}</b>',
-            styles['body'],
-        ),
-        Spacer(1, 8),
-    ]
-
-
-def _build_conditions(styles):
-    """Раздел 'Условия аренды'."""
-    flow = [Paragraph(SECTION_TERMS, styles['label'])]
-    for i, cond in enumerate(CONTRACT_CONDITIONS, 1):
-        flow.append(Paragraph(f'4.{i}. {cond}', styles['body']))
-    flow.append(Spacer(1, 12))
+def _build_subject(styles, rental):
+    flow = [Paragraph('1. Предмет договора', styles['h2'])]
+    flow.append(Paragraph(
+        '1.1. Арендодатель передаёт Арендатору во временное пользование '
+        f'горнолыжный инвентарь: {_items_summary(rental)}.',
+        styles['body'],
+    ))
+    flow.append(Paragraph(
+        '1.2. Инвентарь передаётся в исправном состоянии, пригодном для эксплуатации.',
+        styles['body'],
+    ))
+    start = _format_date(rental.start_date)
+    end = _format_date(rental.end_date)
+    flow.append(Paragraph(
+        f'1.3. Срок аренды: с {start} по {end}.', styles['body'],
+    ))
     return flow
 
 
-def _build_signatures(styles, today_str, normal_font):
-    """Раздел 'Подписи сторон'."""
-    flow = [
-        HRFlowable(width="100%", thickness=0.5, color=colors.HexColor(COLOR_HR)),
-        Spacer(1, 10),
-        Paragraph(SECTION_SIGNS, styles['label']),
+def _build_payment(styles, rental):
+    total = (
+        f'{rental.total_price:,.0f}'.replace(',', ' ')
+        if rental.total_price else '_________'
+    )
+    return [
+        Paragraph('2. Стоимость аренды и порядок оплаты', styles['h2']),
+        Paragraph(
+            f'2.1. Стоимость аренды составляет <b>{total} тенге</b>.',
+            styles['body'],
+        ),
+        Paragraph(
+            '2.2. Арендатор обязуется оплатить стоимость аренды до получения инвентаря.',
+            styles['body'],
+        ),
+        Paragraph(
+            '2.3. По усмотрению Арендодателя может взиматься залог '
+            f'в размере {DEPOSIT_AMOUNT_TEXT} либо документ, удостоверяющий личность.',
+            styles['body'],
+        ),
+        Paragraph(
+            '2.4. В случае просрочки возврата инвентаря Арендатор оплачивает '
+            f'дополнительную аренду {LATE_RETURN_RATE}.',
+            styles['body'],
+        ),
     ]
 
-    sig_data = [
-        [f'{LABEL_LANDLORD} ({COMPANY_NAME})', '', LABEL_TENANT],
-        ['', '', ''],
-        ['_______________________', '', '_______________________'],
-        [f'{LABEL_DATE}: {today_str}', '', f'{LABEL_DATE}: {today_str}'],
+
+def _build_rights(styles):
+    return [
+        Paragraph('3. Права и обязанности сторон', styles['h2']),
+        Paragraph('<b>Арендодатель обязуется:</b>', styles['body']),
+        Paragraph(
+            '3.1. Передать исправный и подготовленный к эксплуатации инвентарь.',
+            styles['body'],
+        ),
+        Paragraph(
+            '3.2. Провести краткий инструктаж по использованию инвентаря.',
+            styles['body'],
+        ),
+        Paragraph('<b>Арендатор обязуется:</b>', styles['body']),
+        Paragraph('3.3. Использовать инвентарь только по назначению.', styles['body']),
+        Paragraph(
+            '3.4. Бережно относиться к инвентарю и соблюдать правила эксплуатации.',
+            styles['body'],
+        ),
+        Paragraph('3.5. Не передавать инвентарь третьим лицам.', styles['body']),
+        Paragraph(
+            '3.6. Вернуть инвентарь в том же состоянии с учётом нормального износа.',
+            styles['body'],
+        ),
+        Paragraph(
+            '3.7. При повреждении, утере или краже инвентаря возместить причинённый ущерб.',
+            styles['body'],
+        ),
     ]
-    sig_table = Table(sig_data, colWidths=[7 * cm, 3 * cm, 7 * cm])
-    sig_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), normal_font),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('ALIGN', (2, 0), (2, -1), 'LEFT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+
+
+def _build_responsibility(styles):
+    return [
+        Paragraph('4. Ответственность сторон', styles['h2']),
+        Paragraph(
+            '4.1. Арендатор несёт полную материальную ответственность '
+            'за переданный инвентарь на весь срок аренды.',
+            styles['body'],
+        ),
+        Paragraph(
+            '4.2. В случае поломки, утери или невозможности восстановления инвентаря '
+            'Арендатор возмещает его полную стоимость согласно прайс-листу Арендодателя.',
+            styles['body'],
+        ),
+        Paragraph(
+            '4.3. Арендодатель не несёт ответственности за травмы, '
+            'полученные Арендатором при использовании инвентаря.',
+            styles['body'],
+        ),
+        Paragraph(
+            '4.4. Арендатор подтверждает, что ознакомлен с правилами безопасности '
+            'при катании на горных лыжах/сноуборде.',
+            styles['body'],
+        ),
+    ]
+
+
+def _build_return(styles):
+    return [
+        Paragraph('5. Возврат инвентаря', styles['h2']),
+        Paragraph(
+            f'5.1. Возврат осуществляется по адресу: {RETURN_ADDRESS}.',
+            styles['body'],
+        ),
+        Paragraph('5.2. При возврате проводится осмотр инвентаря.', styles['body']),
+        Paragraph(
+            '5.3. При обнаружении повреждений составляется акт.',
+            styles['body'],
+        ),
+    ]
+
+
+def _build_final(styles):
+    return [
+        Paragraph('6. Заключительные положения', styles['h2']),
+        Paragraph(
+            '6.1. Подписывая настоящий договор, Арендатор подтверждает исправность '
+            'полученного инвентаря и отсутствие претензий к его состоянию.',
+            styles['body'],
+        ),
+        Paragraph(
+            '6.2. Все споры решаются путём переговоров, а при невозможности '
+            'достижения соглашения — в соответствии с законодательством '
+            'Республики Казахстан.',
+            styles['body'],
+        ),
+        Paragraph(
+            '6.3. Настоящий договор вступает в силу с момента подписания сторонами.',
+            styles['body'],
+        ),
+    ]
+
+
+def _landlord_signature_cell(styles):
+    """Подпись Арендодателя + печать (если файл с печатью есть)."""
+    if STAMP_PATH.exists():
+        try:
+            img = Image(
+                str(STAMP_PATH),
+                width=STAMP_WIDTH_CM * cm,
+                height=STAMP_WIDTH_CM * cm,
+            )
+            return KeepTogether([
+                Paragraph('Подпись: _______________________', styles['body']),
+                Spacer(1, 4),
+                img,
+            ])
+        except Exception as e:
+            logger.warning('Failed to load stamp image: %s', e)
+    return Paragraph('Подпись: _______________________', styles['body'])
+
+
+def _build_requisites(styles, client):
+    flow = [Paragraph('Реквизиты и подписи сторон', styles['h2'])]
+
+    data = [
+        [
+            Paragraph('<b>Арендодатель</b>', styles['body']),
+            Paragraph('<b>Арендатор</b>', styles['body']),
+        ],
+        [
+            Paragraph(
+                f'{LANDLORD_LEGAL_FORM} {LANDLORD_NAME}<br/>'
+                f'БИН/ИИН: {LANDLORD_BIN_IIN}<br/>'
+                f'Адрес: {LANDLORD_ADDRESS}<br/>'
+                f'Телефон: {LANDLORD_PHONE}',
+                styles['body'],
+            ),
+            Paragraph(
+                f'ФИО: {client.full_name}<br/>'
+                f'ИИН: {client.document_id or "____________________"}<br/>'
+                f'Телефон: {client.phone or "____________________"}<br/>'
+                f'Email: {client.email or "—"}',
+                styles['body'],
+            ),
+        ],
+        [
+            _landlord_signature_cell(styles),
+            Paragraph('Подпись: _______________________', styles['body']),
+        ],
+    ]
+
+    t = Table(data, colWidths=[8.5 * cm, 8.5 * cm])
+    t.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
     ]))
-    flow.append(sig_table)
+    flow.append(t)
     return flow
 
 
 def _build_status_line(styles, contract):
-    """Подпись внизу: статус договора."""
-    status_text = STATUS_TEXT_MAP.get(contract.status, contract.status)
+    status_map = {
+        'signed_sms':  '✓ Подписан через SMS OTP',
+        'signed_card': '✓ Подписан через ЭЦП',
+        'accepted':    '✓ Принят',
+        'draft':       'Черновик',
+        'sent':        'Отправлен, ожидает подписи',
+        'rejected':    '✗ Отклонён',
+    }
+    text = status_map.get(contract.status, contract.status)
     if contract.accepted_at:
-        status_text += f' — {contract.accepted_at.strftime("%d.%m.%Y %H:%M")}'
+        text += f' — {contract.accepted_at.strftime("%d.%m.%Y %H:%M")}'
     return [
-        Spacer(1, 12),
-        Paragraph(f'<i>Статус договора: {status_text}</i>', styles['small']),
+        Spacer(1, 10),
+        HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#CCCCCC')),
+        Spacer(1, 4),
+        Paragraph(
+            f'<i>Статус договора № {contract.rental.contract_number}: {text}</i>',
+            styles['small'],
+        ),
     ]
 
 
 # ═════════════════════════════════════════════════════════════════════════
-#  Точка входа
+#  ТОЧКА ВХОДА
 # ═════════════════════════════════════════════════════════════════════════
 
 def generate_contract_pdf(contract) -> bytes:
@@ -293,8 +460,8 @@ def generate_contract_pdf(contract) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
-        leftMargin=PAGE_MARGIN_CM * cm, rightMargin=PAGE_MARGIN_CM * cm,
-        topMargin=PAGE_MARGIN_CM * cm, bottomMargin=PAGE_MARGIN_CM * cm,
+        leftMargin=2 * cm, rightMargin=2 * cm,
+        topMargin=2 * cm, bottomMargin=2 * cm,
     )
 
     normal_font, bold_font = _register_fonts()
@@ -302,17 +469,19 @@ def generate_contract_pdf(contract) -> bytes:
 
     rental = contract.rental
     client = contract.client
-    today_str = date.today().strftime('%d.%m.%Y')
+    sign_date = contract.accepted_at.date() if contract.accepted_at else date.today()
+    sign_date_str = _format_date(sign_date)
 
     story = []
-    story += _build_header(styles, rental, today_str)
-    story += _build_parties(styles, client)
-    story += _build_subject(styles)
-    story.append(_build_items_table(rental, normal_font, bold_font))
-    story.append(Spacer(1, 12))
-    story += _build_period(styles, rental)
-    story += _build_conditions(styles)
-    story += _build_signatures(styles, today_str, normal_font)
+    story += _build_header(styles, sign_date_str)
+    story += _build_preamble(styles, client)
+    story += _build_subject(styles, rental)
+    story += _build_payment(styles, rental)
+    story += _build_rights(styles)
+    story += _build_responsibility(styles)
+    story += _build_return(styles)
+    story += _build_final(styles)
+    story += _build_requisites(styles, client)
     story += _build_status_line(styles, contract)
 
     doc.build(story)

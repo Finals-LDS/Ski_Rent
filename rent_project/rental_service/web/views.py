@@ -9,6 +9,7 @@ import json as _json
 import logging
 import urllib.error
 import urllib.request
+import urllib.parse
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -36,6 +37,13 @@ from .models import AppSettings
 
 
 logger = logging.getLogger(__name__)
+
+# OpenRouter fallback models (stable)
+OPENROUTER_MODELS = [
+    'mistralai/mistral-7b-instruct',
+    'meta-llama/llama-3.1-8b-instruct',
+    'gryphe/mythomax-l2-13b',
+]
 User = get_user_model()
 
 ROLE_DASHBOARDS = {
@@ -479,14 +487,9 @@ def analytics_export(request):
 
 
 # ═════════════════════════════════════════════════════════════════════════
-#  AI ASSISTANT (Решид) — Groq
+#  AI ASSISTANT (Решид) — OpenRouter
 # ═════════════════════════════════════════════════════════════════════════
 
-# Ключи-заглушки — не отправлять в API
-_PLACEHOLDER_KEYS = {
-    'gsk-your-key-here', 'your-key-here', 'placeholder',
-    'gsk-placeholder', 'gsk-...', 'ваш-ключ',
-}
 
 # Системный промпт ассистента Решид
 _SYSTEM_PROMPT = """Ты — Решид, ИИ-ассистент горнолыжного проката Ski Rent.
@@ -569,26 +572,17 @@ draft (Черновик) → open (Открыт) → booked (Заброниро�
 Если вопрос не относится к работе Ski Rent CRM, вежливо объясни что ты специализируешься на этой системе."""
 
 
-def _resolve_groq_key():
+def _resolve_openrouter_key():
     """Приоритет: БД → settings.py → переменная окружения."""
     import os
     key = (
-        AppSettings.get('GROQ_API_KEY')
-        or getattr(dj_settings, 'GROQ_API_KEY', '')
-        or os.environ.get('GROQ_API_KEY', '')
+        AppSettings.get('OPENROUTER_API_KEY')
+        or getattr(dj_settings, 'OPENROUTER_API_KEY', '')
+        or os.environ.get('OPENROUTER_API_KEY', '')
     ).strip()
     return key
 
 
-def _is_placeholder_key(key):
-    if not key:
-        return True
-    lower = key.lower()
-    if key in _PLACEHOLDER_KEYS:
-        return True
-    if 'your-key' in lower or 'placeholder' in lower:
-        return True
-    return False
 
 
 @login_required(login_url='login')
@@ -602,18 +596,17 @@ def ai_chat_view(request):
         if not user_message:
             return JsonResponse({'reply': 'Пожалуйста, введите сообщение.'})
 
-        api_key = _resolve_groq_key()
+        api_key = _resolve_openrouter_key()
 
-        if _is_placeholder_key(api_key):
+        if not api_key:
             return JsonResponse({
-                'reply': '⚠️ API-ключ Groq не настроен.\n'
+                'reply': '⚠️ API-ключ OpenRouter не настроен.\n'
                          'Перейдите в **Настройки → ИИ-ассистент** и введите ключ.\n'
-                         'Получить ключ: https://console.groq.com/keys',
+                         'Получить ключ: https://openrouter.ai/',
                 'no_key': True,
             })
 
-        # Groq использует OpenAI-совместимый формат: system-prompt передаётся
-        # отдельным сообщением с role="system".
+        # OpenRouter format (OpenAI-compatible)
         messages_payload = [{'role': 'system', 'content': _SYSTEM_PROMPT}]
         for h in history[-8:]:
             if h.get('role') in ('user', 'assistant') and h.get('content', '').strip():
@@ -623,31 +616,51 @@ def ai_chat_view(request):
                 })
         messages_payload.append({'role': 'user', 'content': user_message})
 
+        # OpenRouter format (OpenAI-compatible)
+        openrouter_messages = []
+
+        for msg in messages_payload:
+            role = msg['role']
+            if role == 'system':
+                role = 'system'
+            elif role == 'assistant':
+                role = 'assistant'
+            else:
+                role = 'user'
+
+            openrouter_messages.append({
+                'role': role,
+                'content': msg['content'],
+            })
+
         req_data = _json.dumps({
-            'model': getattr(dj_settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile'),
-            'max_tokens': 700,
+            'model': OPENROUTER_MODELS[0],
+            'messages': openrouter_messages,
             'temperature': 0.5,
-            'messages': messages_payload,
+            'max_tokens': 500,
         }).encode('utf-8')
 
         req = urllib.request.Request(
-            'https://api.groq.com/openai/v1/chat/completions',
+            'https://openrouter.ai/api/v1/chat/completions',
             data=req_data,
             headers={
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {api_key}',
+                'HTTP-Referer': 'https://localhost',
+                'X-Title': 'Ski Rent CRM',
             },
             method='POST',
         )
-        with urllib.request.urlopen(req, timeout=25) as resp:
+
+        with urllib.request.urlopen(req, timeout=30) as resp:
             result = _json.loads(resp.read().decode('utf-8'))
 
-        # Ответ в формате: result.choices[0].message.content
-        choices = result.get('choices') or []
+        choices = result.get('choices', [])
         if choices:
-            reply = choices[0].get('message', {}).get('content', 'Нет ответа.')
+            reply = choices[0].get('message', {}).get('content', '').strip()
         else:
             reply = 'Нет ответа.'
+
         return JsonResponse({'reply': reply})
 
     except urllib.error.HTTPError as e:
@@ -659,18 +672,23 @@ def ai_chat_view(request):
             err_detail = ''
         if code == 401:
             return JsonResponse({
-                'reply': '❌ Неверный API-ключ Groq (ошибка 401).\n'
+                'reply': '❌ Неверный API-ключ OpenRouter (ошибка 401).\n'
                          'Перейдите в /settings/ и введите корректный ключ.',
                 'no_key': True,
             })
         elif code == 429:
             return JsonResponse({
-                'reply': '⏳ Превышен лимит запросов к Groq API. Попробуйте через несколько секунд.',
+                'reply': '⏳ Превышен лимит запросов OpenRouter API. Попробуйте позже.',
+            })
+        elif code == 403:
+            return JsonResponse({
+                'reply': '❌ OpenRouter API временно недоступен или превышен лимит.',
             })
         else:
             extra = f' — {err_detail}' if err_detail else ''
+            logger.exception('OpenRouter API error %s: %s', code, err_detail)
             return JsonResponse({
-                'reply': f'Ошибка Groq API: {code}{extra}. Проверьте ключ в настройках.',
+                'reply': f'Ошибка OpenRouter API: {code}{extra}. Проверьте ключ.',
             })
     except Exception as exc:
         return JsonResponse(
@@ -694,53 +712,61 @@ def app_settings_view(request):
     if request.method == 'POST':
         action = request.POST.get('action', '')
 
-        if action == 'save_groq_key':
-            key = request.POST.get('groq_key', '').strip()
+        if action == 'save_openrouter_key':
+            key = request.POST.get('openrouter_key', '').strip()
             if key:
                 AppSettings.set(
-                    'GROQ_API_KEY', key,
-                    note='Ключ Groq API для ИИ-ассистента Решид',
+                    'OPENROUTER_API_KEY', key,
+                    note='Ключ OpenRouter API для ИИ-ассистента Решид',
                 )
-                msg_ok = 'API-ключ Groq сохранён. ИИ-ассистент готов к работе!'
+                msg_ok = 'API-ключ OpenRouter сохранён. ИИ-ассистент готов к работе!'
             else:
-                AppSettings.set('GROQ_API_KEY', '')
+                AppSettings.set('OPENROUTER_API_KEY', '')
                 msg_ok = 'API-ключ очищен.'
 
-        elif action == 'test_groq_key':
-            api_key = _resolve_groq_key()
+        elif action == 'test_openrouter_key':
+            api_key = _resolve_openrouter_key()
+
             if not api_key:
-                msg_err = 'API-ключ не задан.'
+                msg_err = 'API-ключ OpenRouter не задан.'
             else:
                 try:
                     req_data = _json.dumps({
-                        'model': getattr(dj_settings, 'GROQ_MODEL', 'llama-3.3-70b-versatile'),
-                        'max_tokens': 20,
+                        'model': 'mistralai/mistral-7b-instruct:free',
                         'messages': [{'role': 'user', 'content': 'ping'}],
-                    }).encode()
+                    }).encode('utf-8')
+
                     req = urllib.request.Request(
-                        'https://api.groq.com/openai/v1/chat/completions',
+                        'https://openrouter.ai/api/v1/chat/completions',
                         data=req_data,
                         headers={
                             'Content-Type': 'application/json',
                             'Authorization': f'Bearer {api_key}',
+                            'HTTP-Referer': 'https://localhost',
+                            'X-Title': 'Ski Rent CRM',
                         },
                         method='POST',
                     )
-                    with urllib.request.urlopen(req, timeout=10) as resp:
+
+                    with urllib.request.urlopen(req, timeout=15) as resp:
                         _json.loads(resp.read())
-                    msg_ok = '✅ Подключение к Groq API успешно! ИИ-ассистент работает.'
+
+                    msg_ok = '✅ Подключение к OpenRouter API успешно! ИИ-ассистент работает.'
+
                 except urllib.error.HTTPError as e:
                     try:
                         err_body = _json.loads(e.read().decode('utf-8', errors='replace'))
                         err_detail = err_body.get('error', {}).get('message', str(err_body))
                     except Exception:
                         err_detail = '(не удалось прочитать ответ)'
+
                     msg_err = f'❌ Ошибка {e.code}: {err_detail}'
+
                 except Exception as ex:
                     msg_err = f'❌ Ошибка соединения: {ex}'
 
     # Текущий сохранённый ключ — маскируем
-    stored_key = AppSettings.get('GROQ_API_KEY', '')
+    stored_key = AppSettings.get('OPENROUTER_API_KEY', '')
     masked_key = ''
     if stored_key:
         if len(stored_key) > 16:
@@ -756,7 +782,7 @@ def app_settings_view(request):
         'is_cashier': True,
         'msg_ok': msg_ok,
         'msg_err': msg_err,
-        'has_groq_key': bool(stored_key),
+        'has_openrouter_key': bool(stored_key),
         'masked_key': masked_key,
     }
     return render(request, 'app_settings.html', context)
