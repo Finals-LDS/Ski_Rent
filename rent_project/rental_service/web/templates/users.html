@@ -90,6 +90,7 @@
     table { width:100%; border-collapse:collapse; } th, td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:13px; } th { color:var(--text-muted); text-align:left; }
     tr:last-child td { border-bottom:none; } .error { color:var(--red); font-size:13px; font-weight:700; margin-bottom:10px; }
   
+ 
     /* ═══════════════════════════════════════════
        MOBILE RESPONSIVE  (≤ 768px / ≤ 480px)
     ═══════════════════════════════════════════ */
@@ -103,8 +104,9 @@
       border: 1px solid var(--border, rgba(255,255,255,0.08));
       cursor: pointer; align-items: center; justify-content: center;
       color: var(--text, #e6edf3); padding: 0;
-      transition: background 0.15s;
+      transition: background 0.15s, left 0.2s ease, transform 0.2s ease;
     }
+    .mob-menu-btn.open { left: 272px; }
     .mob-menu-btn:hover { background: var(--surface2, #1c2130); }
     .mob-menu-btn svg { width: 22px; height: 22px; fill: currentColor; }
 
@@ -186,6 +188,7 @@
       .cashier-totals .stat-card { flex: 1 1 100% !important; }
       .meta-grid    { grid-template-columns: 1fr !important; }
     }
+
 
   </style>
 </head>
@@ -321,7 +324,7 @@
     </table>
   </div>
 </main>
-{% include "ai_widget.html" %}
+
 {% include "ai_widget.html" %}
 
 <script>
@@ -332,8 +335,26 @@
     var overlay = document.getElementById('sidebar-overlay');
     if (!btn || !sidebar || !overlay) return;
 
-    function open()  { sidebar.classList.add('open');    overlay.classList.add('open');    document.body.style.overflow = 'hidden'; }
-    function close() { sidebar.classList.remove('open'); overlay.classList.remove('open'); document.body.style.overflow = ''; }
+    function setMenuIcon(isOpen) {
+      btn.innerHTML = isOpen
+        ? '<svg viewBox="0 0 24 24"><path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.29 10.59 10.59 16.89 4.29z"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>';
+    }
+
+    function open()  {
+      sidebar.classList.add('open');
+      overlay.classList.add('open');
+      btn.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      setMenuIcon(true);
+    }
+    function close() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('open');
+      btn.classList.remove('open');
+      document.body.style.overflow = '';
+      setMenuIcon(false);
+    }
 
     btn.addEventListener('click', function() {
       sidebar.classList.contains('open') ? close() : open();
@@ -347,8 +368,13 @@
         if (window.innerWidth <= 768) close();
       });
     });
+    window.addEventListener('resize', function() {
+      if (window.innerWidth > 768) close();
+    });
+    setMenuIcon(false);
   })();
 </script>
+
 
 </body>
 </html>

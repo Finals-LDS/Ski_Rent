@@ -110,7 +110,23 @@
     .filter-btn .chevron { width: 12px; height: 12px; transition: transform 0.2s; }
     .filter-btn.open .chevron { transform: rotate(180deg); }
 
-    .dropdown-panel { position: absolute; top: calc(100% + 6px); left: 0; min-width: 200px; background: #1a2032; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 200; display: none; animation: dropIn 0.15s ease; }
+    .dropdown-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: auto;
+      min-width: 200px;
+      width: max-content;
+      max-width: calc(100vw - 32px);
+      background: #1a2032;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      z-index: 200;
+      display: none;
+      animation: dropIn 0.15s ease;
+    }
     .dropdown-panel.show { display: block; }
     @keyframes dropIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
     .dropdown-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 4px 8px 6px; }
@@ -438,10 +454,7 @@
                   <a href="{% url 'payment_refund' p.last_payment_id %}" style="text-decoration:none;">
                     <button style="padding:5px 13px;border-radius:8px;border:1px solid rgba(240,136,62,.35);background:rgba(240,136,62,.1);color:#f0883e;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='rgba(240,136,62,.22)'" onmouseout="this.style.background='rgba(240,136,62,.1)'">↩ Возврат</button>
                   </a>
-                {% endif %}
-                  {% elif p.last_status == "refunded" or p.last_status == "partially_refunded" %}
-                  <span style="font-size:11px;font-weight:700;color:#f85149;background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.2);border-radius:20px;padding:3px 10px;text-transform:uppercase;letter-spacing:.5px;">Возврат</span>
-                {% endif %}
+                {% endif %}{% endif %}
               </td>
             {% endif %}
             </tr>
@@ -483,9 +496,31 @@
     function toggleDropdown(id, btn) {
       const panel = document.getElementById(id);
       const isOpen = panel.classList.contains('show');
+
       document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
-      if (!isOpen) { panel.classList.add('show'); btn.classList.add('open'); }
+
+      if (!isOpen) {
+        panel.classList.add('show');
+        btn.classList.add('open');
+
+        requestAnimationFrame(() => {
+          panel.style.left = '0px';
+          panel.style.right = 'auto';
+
+          const rect = panel.getBoundingClientRect();
+          const overflowRight = rect.right - window.innerWidth + 16;
+          const overflowLeft = 16 - rect.left;
+
+          if (overflowRight > 0) {
+            panel.style.left = `-${overflowRight}px`;
+          }
+
+          if (overflowLeft > 0) {
+            panel.style.left = `${overflowLeft}px`;
+          }
+        });
+      }
     }
 
     document.addEventListener('click', e => {

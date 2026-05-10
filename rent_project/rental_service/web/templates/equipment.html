@@ -125,7 +125,23 @@
     .filter-btn .chevron { width: 12px; height: 12px; transition: transform 0.2s; }
     .filter-btn.open .chevron { transform: rotate(180deg); }
 
-    .dropdown-panel { position: absolute; top: calc(100% + 6px); left: 0; min-width: 200px; background: #1a2032; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 200; display: none; animation: dropIn 0.15s ease; }
+    .dropdown-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: auto;
+      min-width: 200px;
+      width: max-content;
+      max-width: calc(100vw - 32px);
+      background: #1a2032;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      z-index: 200;
+      display: none;
+      animation: dropIn 0.15s ease;
+    }
     .dropdown-panel.show { display: block; }
     @keyframes dropIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
     .dropdown-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 4px 8px 6px; }
@@ -548,9 +564,31 @@
     function toggleDropdown(id, btn) {
       const panel = document.getElementById(id);
       const isOpen = panel.classList.contains('show');
+
       document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
-      if (!isOpen) { panel.classList.add('show'); btn.classList.add('open'); }
+
+      if (!isOpen) {
+        panel.classList.add('show');
+        btn.classList.add('open');
+
+        requestAnimationFrame(() => {
+          panel.style.left = '0px';
+          panel.style.right = 'auto';
+
+          const rect = panel.getBoundingClientRect();
+          const overflowRight = rect.right - window.innerWidth + 16;
+          const overflowLeft = 16 - rect.left;
+
+          if (overflowRight > 0) {
+            panel.style.left = `-${overflowRight}px`;
+          }
+
+          if (overflowLeft > 0) {
+            panel.style.left = `${overflowLeft}px`;
+          }
+        });
+      }
     }
 
     document.addEventListener('click', e => {
@@ -632,7 +670,7 @@
     buildSizeOptions();
     applyAll();
   </script>
-{% include "ai_widget.html" %}
+  
 {% include "ai_widget.html" %}
 
 <script>

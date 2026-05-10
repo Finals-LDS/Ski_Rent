@@ -145,7 +145,23 @@
     .btn-primary:hover { background: rgba(73, 161, 248, 0.22); }
     .btn-primary svg { width: 16px; height: 16px; fill: rgb(107, 150, 249); }
 
-    .cal-panel { position: absolute; top: calc(100% + 6px); left: 0; background: #1a2032; border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.6); z-index: 300; display: none; min-width: 280px; max-width: min(92vw, 360px); animation: dropIn 0.15s ease; }
+    .cal-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: auto;
+      background: #1a2032;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+      z-index: 300;
+      display: none;
+      min-width: 280px;
+      width: max-content;
+      max-width: calc(100vw - 32px);
+      animation: dropIn 0.15s ease;
+    }
     .cal-panel.show { display: block; }
     .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
     .cal-title { font-size: 13px; font-weight: 700; color: var(--text); }
@@ -587,10 +603,20 @@
 
     function toggleDropdown(id, btn) {
       const panel = document.getElementById(id);
+      const calPanel = document.getElementById('calPanel');
+      const dateBtn = document.getElementById('dateRangeBtn');
       const isOpen = panel.classList.contains('show');
+
       document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
-      if (!isOpen) { panel.classList.add('show'); btn.classList.add('open'); }
+
+      if (calPanel) calPanel.classList.remove('show');
+      if (dateBtn) dateBtn.classList.remove('open');
+
+      if (!isOpen) {
+        panel.classList.add('show');
+        btn.classList.add('open');
+      }
     }
 
     document.addEventListener('click', e => {
@@ -620,13 +646,41 @@
 
     function toggleCal() {
       const panel = document.getElementById('calPanel');
+      const btn = document.getElementById('dateRangeBtn');
       const isOpen = panel.classList.contains('show');
+
+      document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('show'));
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('open'));
+
       if (!isOpen) {
         const now = new Date();
-        calYear = now.getFullYear(); calMonth = now.getMonth();
+        calYear = now.getFullYear();
+        calMonth = now.getMonth();
+
         renderCal();
         panel.classList.add('show');
-      } else { panel.classList.remove('show'); }
+        btn.classList.add('open');
+
+        requestAnimationFrame(() => {
+          panel.style.left = '0px';
+          panel.style.right = 'auto';
+
+          const rect = panel.getBoundingClientRect();
+          const overflowRight = rect.right - window.innerWidth + 16;
+          const overflowLeft = 16 - rect.left;
+
+          if (overflowRight > 0) {
+            panel.style.left = `-${overflowRight}px`;
+          }
+
+          if (overflowLeft > 0) {
+            panel.style.left = `${overflowLeft}px`;
+          }
+        });
+      } else {
+        panel.classList.remove('show');
+        btn.classList.remove('open');
+      }
     }
 
     function renderCal() {
