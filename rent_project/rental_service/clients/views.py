@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
@@ -13,6 +15,21 @@ from .serializers import ClientSerializer
 ACTIVE_RENTAL_STATUSES = ("open", "booked", "rented")
 
 
+def _parse_birth_date(raw):
+    """
+    HTML <input type="date"> присылает строку 'YYYY-MM-DD' либо пусто.
+    Возвращает datetime.date | None. Невалидное значение → None,
+    чтобы не падать на сохранении.
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
 # ─────────────────────────────────────────
 #  REST API ViewSet
 # ─────────────────────────────────────────
@@ -22,7 +39,7 @@ class ClientViewSet(ModelViewSet):
 
 
 # ─────────────────────────────────────────
-#  Web pages (moved from web/views.py)
+#  Web pages
 # ─────────────────────────────────────────
 @login_required(login_url="login")
 def clients_page(request):
@@ -47,6 +64,7 @@ def clients_page(request):
             phone = request.POST.get("phone", "").strip()
             email = request.POST.get("email", "").strip() or None
             document_id = request.POST.get("document_id", "").strip() or None
+            birth_date = _parse_birth_date(request.POST.get("birth_date"))
 
             if not full_name or not phone:
                 error = "Заполните обязательные поля: ФИО и телефон."
@@ -56,6 +74,7 @@ def clients_page(request):
                     phone=phone,
                     email=email,
                     document_id=document_id,
+                    birth_date=birth_date,
                 )
                 messages.success(request, "Клиент добавлен.")
                 return redirect("clients")
@@ -65,6 +84,7 @@ def clients_page(request):
             client.phone = request.POST.get("phone", "").strip()
             client.email = request.POST.get("email", "").strip()
             client.document_id = request.POST.get("document_id", "").strip()
+            client.birth_date = _parse_birth_date(request.POST.get("birth_date"))
             client.save()
             messages.success(request, "Клиент обновлён.")
             return redirect("clients")
@@ -115,6 +135,8 @@ def client_create_page(request):
         phone = request.POST.get("phone", "").strip()
         email = request.POST.get("email", "").strip() or None
         document_id = request.POST.get("document_id", "").strip() or None
+        birth_date = _parse_birth_date(request.POST.get("birth_date"))
+
         if not full_name or not phone:
             error = "Заполните обязательные поля: ФИО и телефон."
         else:
@@ -123,12 +145,14 @@ def client_create_page(request):
                 client.phone = phone
                 client.email = email
                 client.document_id = document_id
+                client.birth_date = birth_date
                 client.save()
                 messages.success(request, "Клиент обновлён.")
             else:
                 Client.objects.create(
                     full_name=full_name, phone=phone,
                     email=email, document_id=document_id,
+                    birth_date=birth_date,
                 )
                 messages.success(request, "Клиент добавлен.")
             return redirect("clients")
