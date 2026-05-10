@@ -28,8 +28,6 @@ urlpatterns = [
     path('contracts/<int:contract_id>/',        views.contract_detail_page,    name='contract_detail'),
     path('contracts/<int:contract_id>/pdf/',    views.contract_pdf_download,   name='contract_pdf_download'),
 
-    path('profile/',                            views.profile_view,            name='profile'),
-
     # Analytics
     path('analytics/',                          views.analytics_view,          name='analytics'),
     path('analytics/export/',                   views.analytics_export,        name='analytics_export'),

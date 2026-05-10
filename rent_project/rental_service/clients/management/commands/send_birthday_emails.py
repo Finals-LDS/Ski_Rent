@@ -42,7 +42,7 @@ BIRTHDAY_EMAIL_HTML = """
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎿 Ski Rent</h1>
+      <h1>Ski Rent</h1>
       <p>Горнолыжный прокат — всё для идеального спуска</p>
     </div>
     <div class="body">
