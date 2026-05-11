@@ -111,16 +111,26 @@ TEMPLATES = [
 # ─────────────────────────────────────────
 #  DATABASE
 # ─────────────────────────────────────────
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': os.environ.get("DB_PASSWORD"),
-        'HOST': '/cloudsql/ski-rent:europe-west1:mqwmee',
-        'PORT': '5432',
-    },
-}
+DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
+
+if DB_ENGINE == "django.db.backends.sqlite3":
+    DATABASES = {
+        "default": {
+            "ENGINE": DB_ENGINE,
+            "NAME": BASE_DIR / os.getenv("DB_NAME", "db.sqlite3"),
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": DB_ENGINE,
+            "NAME": os.getenv("DB_NAME", "postgres"),
+            "USER": os.getenv("DB_USER", "postgres"),
+            "PASSWORD": os.getenv("DB_PASSWORD", ""),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
+    }
 
 
 # ─────────────────────────────────────────
