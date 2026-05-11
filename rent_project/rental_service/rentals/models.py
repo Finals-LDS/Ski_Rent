@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -63,8 +64,39 @@ class Rental(models.Model):
 
     def calculate_total_price(self):
         total = Decimal('0.00')
+
+        if not self.start_date:
+            return total
+
+        modifier = PriceModifier.objects.first()
+
+        weekday_multiplier = Decimal('1.0')
+        holiday_multiplier = Decimal('1.0')
+
+        if modifier:
+            weekday_multiplier = Decimal(str(modifier.weekday_multiplier))
+            holiday_multiplier = Decimal(str(modifier.holiday_multiplier))
+
         for item in self.items.all():
-            total += Decimal(item.days) * item.price_per_day * Decimal(item.quantity)
+            item_total = Decimal('0.00')
+
+            for day_offset in range(item.days):
+                current_day = self.start_date + timedelta(days=day_offset)
+
+                daily_price = item.price_per_day
+
+                # Суббота = 5, воскресенье = 6
+                if current_day.weekday() in [5, 6]:
+                    daily_price *= weekday_multiplier
+
+                # Заглушка для праздников
+                # Позже можно подключить holidays KZ
+                if False:
+                    daily_price *= holiday_multiplier
+
+                item_total += daily_price * Decimal(item.quantity)
+
+            total += item_total
 
         if self.discount:
             discount_amount = total * Decimal(self.discount.percent) / Decimal('100')

@@ -141,9 +141,8 @@
     .date-range-btn.active { border-color: rgba(79,172,254,0.5); color: var(--accent); background: rgba(79,172,254,0.07); }
     .date-range-btn svg { width: 14px; height: 14px; fill: currentColor; }
 
-    .btn-primary { display: flex; align-items: center; gap: 8px; justify-content: center; width: 70%; padding: 9px; background: rgba(73, 152, 248, 0.12); border: 1px solid rgba(73, 169, 248, 0.25); border-radius: 8px; color: rgb(107, 150, 249); font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.15s; }
-    .btn-primary:hover { background: rgba(73, 161, 248, 0.22); }
-    .btn-primary svg { width: 16px; height: 16px; fill: rgb(107, 150, 249); }
+    .btn-primary { padding: 7px 10px; border-radius: 10px; text-decoration: none; background: rgba(79,172,254,0.12); border: 1px solid rgba(79,172,254,0.3); color: var(--accent); font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.15s; }
+    .btn-primary:hover { background: rgba(79,172,254,0.2); }
 
     .cal-panel {
       position: absolute;
@@ -547,9 +546,6 @@
                     {# Договора нет — кнопка создания #}
                     {% if r.client %}
                       <a href="{% url 'contract_create_web' r.id %}" class="btn-primary">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
-                        </svg>
                         Создать
                       </a>
                     {% else %}

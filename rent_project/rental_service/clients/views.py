@@ -17,16 +17,17 @@ ACTIVE_RENTAL_STATUSES = ("open", "booked", "rented")
 
 def _parse_birth_date(raw):
     """
-    HTML <input type="date"> присылает строку 'YYYY-MM-DD' либо пусто.
-    Возвращает datetime.date | None. Невалидное значение → None,
-    чтобы не падать на сохранении.
+    HTML <input type="date"> присылает строку YYYY-MM-DD.
     """
     raw = (raw or "").strip()
+
     if not raw:
         return None
+
     try:
-        return date.fromisoformat(raw)
-    except ValueError:
+        parsed = date.fromisoformat(raw)
+        return parsed
+    except Exception:
         return None
 
 
@@ -177,7 +178,7 @@ def send_birthday_emails_view(request):
         from django.core.management import call_command
         from io import StringIO
         out = StringIO()
-        call_command('send_birthday_emails', '--discount=15', stdout=out)
+        call_command('send_birthday_emails', '--discount=10', stdout=out)
         messages.success(request, f'Поздравления отправлены! {out.getvalue()}')
     except Exception as exc:
         messages.error(request, f'Ошибка при отправке: {exc}')

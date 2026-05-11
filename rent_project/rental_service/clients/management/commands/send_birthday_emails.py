@@ -34,7 +34,6 @@ BIRTHDAY_EMAIL_HTML = """
     .promo-box {{ background: rgba(79,172,254,0.08); border: 1px solid rgba(79,172,254,0.25); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px; }}
     .promo-box .discount {{ font-size: 48px; font-weight: 800; color: #4facfe; line-height: 1; }}
     .promo-box .label {{ font-size: 13px; color: rgba(230,237,243,0.6); margin-top: 6px; }}
-    .promo-code {{ background: rgba(255,255,255,0.05); border: 1px dashed rgba(79,172,254,0.4); border-radius: 8px; padding: 12px 20px; font-family: monospace; font-size: 20px; letter-spacing: 3px; color: #4facfe; font-weight: 700; text-align: center; margin-bottom: 24px; }}
     .footer {{ padding: 20px 32px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 12px; color: rgba(230,237,243,0.35); text-align: center; }}
     .emoji-big {{ font-size: 48px; display: block; text-align: center; margin-bottom: 12px; }}
   </style>
@@ -55,10 +54,9 @@ BIRTHDAY_EMAIL_HTML = """
         <div class="discount">{discount_percent}%</div>
         <div class="label">скидка на аренду снаряжения в ваш особый день</div>
       </div>
-      <div style="font-size: 13px; color: rgba(230,237,243,0.6); margin-bottom: 8px; text-align: center;">Ваш промокод:</div>
-      <div class="promo-code">BDAY{promo_suffix}</div>
-      <div class="message" style="font-size: 13px; text-align: center;">
-        Промокод действует сегодня. Просто назовите его при оформлении аренды или покажите это письмо нашему сотруднику.
+      <div class="message" style="font-size: 14px; text-align: center; margin-top: 20px;">
+        Скажите менеджеру о скидке «С днём рождения» и предоставьте подтверждающий документ,
+        чтобы получить скидку на аренду.
       </div>
     </div>
     <div class="footer">
@@ -76,8 +74,8 @@ BIRTHDAY_EMAIL_TEXT = """
 
 Команда Ski Rent поздравляет вас и дарит скидку {discount_percent}% на аренду снаряжения!
 
-Ваш промокод: BDAY{promo_suffix}
-Промокод действует сегодня.
+Скажите менеджеру о скидке «С днём рождения» и предоставьте подтверждающий документ,
+чтобы получить скидку на аренду.
 
 С уважением,
 Команда Ski Rent
@@ -96,7 +94,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--discount',
             type=int,
-            default=15,
+            default=10,
             help='Процент скидки в поздравительном письме (по умолчанию 15)',
         )
 
@@ -106,6 +104,7 @@ class Command(BaseCommand):
         discount_percent = options['discount']
 
         birthday_clients = Client.objects.filter(
+            birth_date__isnull=False,
             birth_date__day=today.day,
             birth_date__month=today.month,
             email__isnull=False,
@@ -113,6 +112,16 @@ class Command(BaseCommand):
 
         count = birthday_clients.count()
         self.stdout.write(f'Именинников сегодня ({today.strftime("%d.%m")}): {count}')
+
+        self.stdout.write(f'Текущая дата сервера: {today}')
+
+        all_birthdays = Client.objects.filter(birth_date__isnull=False)
+        self.stdout.write(f'Всего клиентов с датой рождения: {all_birthdays.count()}')
+
+        for c in all_birthdays[:10]:
+            self.stdout.write(
+                f'DEBUG -> {c.full_name}: {c.birth_date} | email={c.email}'
+            )
 
         if dry_run:
             for c in birthday_clients:
@@ -122,16 +131,13 @@ class Command(BaseCommand):
         sent = 0
         failed = 0
         for client in birthday_clients:
-            promo_suffix = f"{client.id:04d}{today.strftime('%m%d')}"
             html_body = BIRTHDAY_EMAIL_HTML.format(
                 full_name=client.full_name,
                 discount_percent=discount_percent,
-                promo_suffix=promo_suffix,
             )
             text_body = BIRTHDAY_EMAIL_TEXT.format(
                 full_name=client.full_name,
                 discount_percent=discount_percent,
-                promo_suffix=promo_suffix,
             )
             try:
                 msg = EmailMultiAlternatives(
