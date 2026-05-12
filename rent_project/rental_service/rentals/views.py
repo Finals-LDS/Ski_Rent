@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
-from django.core.mail import EmailMultiAlternatives
+from .gmail_service import send_email as gmail_send_email
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -254,14 +254,12 @@ class ContractSmsSendView(APIView):
                     f"<span style='font-size:24px;color:#4facfe'>{code}</span></strong></p>"
                     f"<p style='color:#888'>Срок действия: 2 минуты. Никому не сообщайте этот код.</p>"
                 )
-                msg = EmailMultiAlternatives(
+                gmail_send_email(
+                    to=email,
                     subject=f"Ski Rent: договор #{contract_id} — предпросмотр и код подписания",
-                    body=full_message,
-                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                    to=[email],
+                    text_body=full_message,
+                    html_body=html_body,
                 )
-                msg.attach_alternative(html_body, "text/html")
-                msg.send(fail_silently=False)
             except Exception as exc:
                 logger.warning("Не удалось отправить OTP на email %s: %s", email, exc)
                 cache.delete(OTP_CACHE_KEY.format(contract_id=contract_id))

@@ -56,9 +56,7 @@ def can_start_rental(rental):
 def send_contract_pdf_email(contract):
     """Отправить PDF договора на email клиента. Безопасно при ошибках."""
     try:
-        from django.conf import settings
-        from django.core.mail import EmailMultiAlternatives
-
+        from .gmail_service import send_email
         from .pdf_utils import generate_contract_pdf
 
         if not contract.client.email:
@@ -72,17 +70,16 @@ def send_contract_pdf_email(contract):
             f'PDF-копия договора прикреплена к этому письму.\n\n'
             f'С уважением,\nКоманда Ski Rent'
         )
-        msg = EmailMultiAlternatives(
+        send_email(
+            to=contract.client.email,
             subject=subject,
-            body=body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[contract.client.email],
+            text_body=body,
+            attachments=[(
+                f'contract_{contract.rental.contract_number}.pdf',
+                pdf_bytes,
+                'application/pdf',
+            )],
         )
-        msg.attach(
-            f'contract_{contract.rental.contract_number}.pdf',
-            pdf_bytes, 'application/pdf',
-        )
-        msg.send(fail_silently=True)
         return True
     except Exception as exc:
         logger.warning('send_contract_pdf_email failed: %s', exc)

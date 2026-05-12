@@ -190,27 +190,11 @@ OTP_EXPIRE_SECONDS = 120
 
 
 # ─────────────────────────────────────────
-#  EMAIL
+#  EMAIL  (Gmail API — без SMTP)
 # ─────────────────────────────────────────
-EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND",
-    "django.core.mail.backends.smtp.EmailBackend",
-)
-
-EMAIL_HOST          = os.getenv("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT          = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_USE_TLS       = os.getenv("EMAIL_USE_TLS", "True") == "True"
-EMAIL_USE_SSL       = os.getenv("EMAIL_USE_SSL", "False") == "True"
-EMAIL_HOST_USER     = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL  = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@skirent.local")
-EMAIL_TIMEOUT       = int(os.getenv("EMAIL_TIMEOUT", "20"))
-
-# На некоторых macOS/Python окружениях нет корректного системного trust store.
-# Если certifi доступен, указываем его CA bundle для SMTP TLS.
-if certifi is not None:
-    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
-    os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+# Локально: укажи путь к token.pickle
+# На Render: сохрани base64(token.pickle) в переменную GMAIL_TOKEN_B64
+GMAIL_TOKEN_PATH = os.getenv("GMAIL_TOKEN_PATH", "token.pickle")
 
 # ─────────────────────────────────────────
 #  AI Assistant (OpenRouter)

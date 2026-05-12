@@ -7,10 +7,9 @@ import logging
 from datetime import date
 
 from django.core.management.base import BaseCommand
-from django.core.mail import EmailMultiAlternatives
-from django.conf import settings
 
 from clients.models import Client
+from rentals.gmail_service import send_email as gmail_send_email
 
 logger = logging.getLogger(__name__)
 
@@ -140,14 +139,12 @@ class Command(BaseCommand):
                 discount_percent=discount_percent,
             )
             try:
-                msg = EmailMultiAlternatives(
+                gmail_send_email(
+                    to=client.email,
                     subject=BIRTHDAY_EMAIL_SUBJECT,
-                    body=text_body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    to=[client.email],
+                    text_body=text_body,
+                    html_body=html_body,
                 )
-                msg.attach_alternative(html_body, "text/html")
-                msg.send(fail_silently=False)
                 sent += 1
                 self.stdout.write(self.style.SUCCESS(f'  ✓ {client.full_name} <{client.email}>'))
             except Exception as exc:
