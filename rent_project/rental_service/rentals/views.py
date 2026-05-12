@@ -12,6 +12,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from django.db import transaction
 
 from rest_framework import status as drf_status
 from rest_framework.decorators import action
@@ -609,34 +611,40 @@ def rental_create_page(request):
                 end_d = start_d + timedelta(days=max(days, 1) - 1)
                 discount_id = request.POST.get("discount_id", "").strip()
 
-                rental = Rental.objects.create(
-                    client=client,
-                    status=status_val if status_val in dict(Rental.STATUS_CHOICES) else "draft",
-                    start_date=start_d,
-                    end_date=end_d,
-                    discount=Discount.objects.filter(pk=discount_id).first() if discount_id else None,
-                )
+                try:
+                    with transaction.atomic():
+                        rental = Rental.objects.create(
+                            client=client,
+                            status=status_val if status_val in dict(Rental.STATUS_CHOICES) else "draft",
+                            start_date=start_d,
+                            end_date=end_d,
+                            discount=Discount.objects.filter(pk=discount_id).first() if discount_id else None,
+                        )
 
-                for item in items:
-                    equipment = get_object_or_404(Equipment, pk=item["eq_id"])
-                    equipment_size = None
-                    if item.get("size"):
-                        equipment_size = EquipmentSize.objects.filter(
-                            equipment=equipment,
-                            size=item["size"].strip()
-                        ).first()
+                        for item in items:
+                            equipment = get_object_or_404(Equipment, pk=item["eq_id"])
+                            equipment_size = None
+                            if item.get("size"):
+                                equipment_size = EquipmentSize.objects.filter(
+                                    equipment=equipment,
+                                    size=item["size"].strip()
+                                ).first()
 
-                    RentalItem.objects.create(
-                        rental=rental,
-                        equipment=equipment,
-                        equipment_size=equipment_size,
-                        price_per_day=equipment.price_per_day,
-                        days=max(days, 1),
-                        quantity=item["qty"],
-                    )
+                            RentalItem.objects.create(
+                                rental=rental,
+                                equipment=equipment,
+                                equipment_size=equipment_size,
+                                price_per_day=equipment.price_per_day,
+                                days=max(days, 1),
+                                quantity=item["qty"],
+                            )
 
-                rental.total_price = rental.calculate_total_price()
-                rental.save(update_fields=["total_price"])
+                        rental.total_price = rental.calculate_total_price()
+                        rental.save(update_fields=["total_price"])
+
+                except ValidationError as e:
+                    messages.error(request, e.message)
+                    return redirect(request.path)
                 messages.success(request, "Аренда добавлена.")
                 return redirect("rentals")
 

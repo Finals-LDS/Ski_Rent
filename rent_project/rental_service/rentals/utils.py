@@ -175,12 +175,12 @@ def recalculate_inventory_counters():
 
     rented_by_size = (
         RentalItem.objects.filter(rental__status__in=ACTIVE_RENTAL_STATUSES)
-        .exclude(size__isnull=True)
-        .exclude(size="")
-        .values("equipment_id", "size")
+        .exclude(equipment_size__isnull=True)
+        .values("equipment_size_id")
         .annotate(total=Sum("quantity"))
     )
+
     for row in rented_by_size:
         EquipmentSize.objects.filter(
-            equipment_id=row["equipment_id"], size=row["size"]
+            pk=row["equipment_size_id"]
         ).update(quantity_rented=row["total"] or 0)

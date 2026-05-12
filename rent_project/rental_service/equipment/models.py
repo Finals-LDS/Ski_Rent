@@ -55,6 +55,10 @@ class EquipmentSize(models.Model):
     quantity = models.IntegerField(default=1, verbose_name='Кол-во')
     quantity_rented = models.IntegerField(default=0, verbose_name='В аренде')
 
+    @property
+    def quantity_available(self):
+        return max(self.quantity - self.quantity_rented, 0)
+
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 

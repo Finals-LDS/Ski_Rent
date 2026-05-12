@@ -95,6 +95,13 @@
 <body>
 <div class="card">
   <h2>Создать аренду</h2>
+  {% if messages %}
+    {% for message in messages %}
+      <div class="err {{ message.tags }}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
   {% if error %}<div class="err">{{ error }}</div>{% endif %}
 
   <form method="post" id="rentalForm">
@@ -143,7 +150,6 @@
       </div>
     </div>
 
-    <div class="items-title">Снаряжение</div>
     <div id="itemsContainer"></div>
 
     <button type="button" class="add-btn" onclick="addItemRow()">
@@ -234,10 +240,20 @@ function onEqChange(n) {
   pd.value = parseFloat(eq.price).toLocaleString('ru-RU') + ' ₸';
 
   if (eq.has_sizes && eq.sizes.length > 0) {
-    // Снаряжение с размерами — показываем select
-    const options = eq.sizes.map(s =>
-      `<option value="${s.size}">${s.size} (доступно: ${s.qty})</option>`
-    ).join('');
+    // Снаряжение с размерами — показываем select (только размеры в наличии)
+    const options = eq.sizes
+      .filter(s => s.qty && s.qty > 0)
+      .map(s => {
+        return `<option value="${s.size}">${s.size} (доступно: ${s.qty})</option>`;
+      })
+      .join('');
+
+    // если вообще нет доступных размеров
+    if (!options) {
+      sc.innerHTML = `<div style="color:rgba(248,81,73,.8);font-size:12px;">Нет доступных размеров</div>`;
+      sf.style.display = 'flex';
+      return;
+    }
     sc.innerHTML = `
       <label>Размер</label>
       <select name="eq_size_${n}">${options}</select>
