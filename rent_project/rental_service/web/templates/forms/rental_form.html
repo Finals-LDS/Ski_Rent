@@ -97,9 +97,11 @@
   <h2>Создать аренду</h2>
   {% if messages %}
     {% for message in messages %}
-      <div class="err {{ message.tags }}">
-        {{ message }}
-      </div>
+      {% if 'error' in message.tags %}
+        <div class="err {{ message.tags }}">
+          {{ message }}
+        </div>
+      {% endif %}
     {% endfor %}
   {% endif %}
   {% if error %}<div class="err">{{ error }}</div>{% endif %}
