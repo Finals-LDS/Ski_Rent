@@ -184,3 +184,6 @@ def recalculate_inventory_counters():
         EquipmentSize.objects.filter(
             pk=row["equipment_size_id"]
         ).update(quantity_rented=row["total"] or 0)
+
+    Equipment.objects.filter(quantity_rented__gt=0).update(status='rented')
+    Equipment.objects.filter(quantity_rented=0).update(status='available')
