@@ -67,7 +67,7 @@ class EquipmentSize(models.Model):
         equipment.quantity = equipment.total_quantity
         equipment.quantity_rented = equipment.total_rented
 
-        if equipment.quantity_available <= 0:
+        if equipment.quantity_rented > 0:
             equipment.status = 'rented'
         else:
             equipment.status = 'available'
@@ -82,7 +82,7 @@ class EquipmentSize(models.Model):
         equipment.quantity = equipment.total_quantity
         equipment.quantity_rented = equipment.total_rented
 
-        if equipment.quantity_available <= 0:
+        if equipment.quantity_rented > 0:
             equipment.status = 'rented'
         else:
             equipment.status = 'available'
