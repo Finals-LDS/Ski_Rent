@@ -14,7 +14,7 @@ def generate_contract_text(client, rental):
         lines = []
         for item in items:
             name = item.equipment.name
-            size_str = f', размер: {item.size}' if item.size else ''
+            size_str = f', размер: {item.equipment_size.size}' if item.equipment_size else ''
             qty_str = f', кол-во: {item.quantity}' if item.quantity > 1 else ''
             price_total = item.price_per_day * item.days * item.quantity
             lines.append(
