@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: ski-rent
+    runtime: python
+    rootDir: rent_project/rental_service
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate && gunicorn rental_service.wsgi:application
+    plan: free
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: DB_ENGINE
+        value: django.db.backends.postgresql
+      - key: DB_NAME
+        value: neondb
+      - key: DB_USER
+        value: neondb_owner
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_HOST
+        value: ep-hidden-river-alb446p3-pooler.c-3.eu-central-1.aws.neon.tech
+      - key: DB_PORT
+        value: "5432"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://ski-rent.onrender.com
