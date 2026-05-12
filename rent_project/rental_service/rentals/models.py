@@ -137,63 +137,44 @@ class RentalItem(models.Model):
     def save(self, *args, **kwargs):
         if not self.price_per_day:
             self.price_per_day = self.equipment.price_per_day
-        if self.equipment_size and self.equipment_size.quantity < self.quantity:
-            raise ValidationError('Недостаточно количества выбранного размера.')
-        if self.equipment_size:
-            self.equipment_size.quantity_rented += self.quantity
-            self.equipment_size.save()
         if self.quantity < 1:
             self.quantity = 1
-        super().save(*args, **kwargs)
         if self.equipment_size:
-            rental = self.rental
-            rental.total_price = rental.calculate_total_price()
-            rental.save(update_fields=['total_price'])
-        else:
-            # Recalculate parent rental total
-            rental = self.rental
-            rental.total_price = rental.calculate_total_price()
-            rental.save(update_fields=['total_price'])
-
-    def __str__(self):
-        size_label = ''
-
-        if self.equipment_size:
-            size_label = f' ({self.equipment_size.size})'
             current_item_quantity = 0
-
-        qty_str = f' x{self.quantity}' if self.quantity > 1 else ''
-
             if self.pk:
                 old_item = RentalItem.objects.filter(pk=self.pk).first()
                 if old_item:
                     current_item_quantity = old_item.quantity
-
-        return f'{self.rental.contract_number} — {self.equipment.name}{size_label}{qty_str}'
             available_quantity = (
                 self.equipment_size.quantity -
                 self.equipment_size.quantity_rented +
                 current_item_quantity
             )
-
             if available_quantity < self.quantity:
                 raise ValidationError(
                     f'Недостаточно товара на складе. '
                     f'Доступно: {max(available_quantity, 0)}'
                 )
+        super().save(*args, **kwargs)
+        rental = self.rental
+        rental.total_price = rental.calculate_total_price()
+        rental.save(update_fields=['total_price'])
+
+    def __str__(self):
+        size_label = ''
+        if self.equipment_size:
+            size_label = f' ({self.equipment_size.size})'
+        qty_str = f' x{self.quantity}' if self.quantity > 1 else ''
+        return f'{self.rental.contract_number} — {self.equipment.name}{size_label}{qty_str}'
 
 
 class Discount(models.Model):
     name = models.CharField(max_length=100)
     percent = models.IntegerField()
     min_days = models.IntegerField()
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
-        rental = self.rental
-        rental.total_price = rental.calculate_total_price()
-        rental.save(update_fields=['total_price'])
 
 
 class PriceModifier(models.Model):
