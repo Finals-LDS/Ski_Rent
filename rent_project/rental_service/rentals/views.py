@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from clients.models import Client
-from equipment.models import Equipment
+from equipment.models import Equipment, EquipmentSize
 
 from .models import Contract, Discount, Rental, RentalItem, Signature
 from .pdf_utils import generate_contract_pdf
@@ -511,12 +511,19 @@ def rentals_page(request):
                         for item in items_data:
                             equipment = equipment_map.get(item["eq_id"])
                             if equipment:
+                                equipment_size = None
+                                if item.get("size"):
+                                    equipment_size = EquipmentSize.objects.filter(
+                                        equipment=equipment,
+                                        size=item["size"].strip()
+                                    ).first()
+
                                 RentalItem.objects.create(
                                     rental=rental,
                                     equipment=equipment,
+                                    equipment_size=equipment_size,
                                     price_per_day=equipment.price_per_day,
                                     days=days,
-                                    size=item["size"] or '',
                                     quantity=item["qty"],
                                 )
 
@@ -612,13 +619,20 @@ def rental_create_page(request):
 
                 for item in items:
                     equipment = get_object_or_404(Equipment, pk=item["eq_id"])
+                    equipment_size = None
+                    if item.get("size"):
+                        equipment_size = EquipmentSize.objects.filter(
+                            equipment=equipment,
+                            size=item["size"].strip()
+                        ).first()
+
                     RentalItem.objects.create(
                         rental=rental,
                         equipment=equipment,
+                        equipment_size=equipment_size,
                         price_per_day=equipment.price_per_day,
                         days=max(days, 1),
                         quantity=item["qty"],
-                        size=item["size"] or '',
                     )
 
                 rental.total_price = rental.calculate_total_price()

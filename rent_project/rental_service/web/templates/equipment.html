@@ -162,6 +162,18 @@
     .no-results { padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px; }
     .no-results svg { width: 36px; height: 36px; fill: var(--text-muted); opacity: 0.4; margin-bottom: 10px; display: block; margin-inline: auto; }
   
+    .size-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(79,172,254,0.12);
+      color: var(--text);
+      font-size: 12px;
+      margin: 2px;
+    }
+
     /* ═══════════════════════════════════════════
        MOBILE RESPONSIVE  (≤ 768px / ≤ 480px)
     ═══════════════════════════════════════════ */
@@ -460,16 +472,31 @@
               data-name="{{ e.name|lower }}"
               data-type="{{ e.type.name|lower }}"
               data-type-display="{{ e.type.name }}"
-              data-size="{{ e.size|default:''|lower }}"
-              data-size-display="{{ e.size|default:'—' }}"
+              data-size="{% for s in e.sizes.all %}{{ s.size|lower }} {% endfor %}"
+              data-size-display="{% for s in e.sizes.all %}{{ s.size }}{% if not forloop.last %}, {% endif %}{% endfor %}"
               data-status="{{ e.status }}"
               data-price="{{ e.price_per_day }}"
-              data-qty="{{ e.quantity }}"
-              data-rented="{{ e.quantity_rented }}"
+              data-qty="{{ e.total_quantity|default:e.quantity }}"
+              data-rented="{{ e.total_rented|default:e.quantity_rented }}"
               data-avail="{{ e.quantity_available }}">
               <td>{{ e.name }}</td>
               <td>{{ e.type.name }}</td>
-              <td>{{ e.size|default:"—" }}</td>
+              <td>
+                {% if e.sizes.exists %}
+                  <div style="display:flex; flex-direction:column; gap:6px;">
+                    {% for s in e.sizes.all %}
+                      <div style="padding:6px 10px; border-radius:8px; background:rgba(255,255,255,0.04); font-size:12px; display:flex; justify-content:space-between; gap:10px;">
+                        <span><strong>{{ s.size }}</strong></span>
+                        <span class="muted">
+                          {{ s.quantity_available }}/{{ s.quantity }}
+                        </span>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
               <td>
                 <form method="post" action="{% url 'equipment' %}" class="inline-form">
                   {% csrf_token %}
@@ -483,8 +510,8 @@
                 </form>
               </td>
               <td>{{ e.price_per_day }}</td>
-              <td>{{ e.quantity }}</td>
-              <td>{{ e.quantity_rented }}</td>
+              <td>{{ e.total_quantity|default:e.quantity }}</td>
+              <td>{{ e.total_rented|default:e.quantity_rented }}</td>
               <td>{{ e.quantity_available }}</td>
               <td>
                 <a href="{% url 'equipment_create' %}?edit={{ e.id }}" class="icon-edit" style="text-decoration:none; margin: 10px;"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></a>

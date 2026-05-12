@@ -365,7 +365,22 @@
           <tr class="item-row" data-name="{{ item.name|lower }}">
             <td style="color:var(--text-muted)">{{ forloop.counter }}</td>
             <td style="font-weight:600">{{ item.name }}</td>
-            <td style="color:var(--text-muted)">{{ item.size }}</td>
+            <td>
+              {% if item.sizes %}
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  {% for s in item.sizes %}
+                    <div style="padding:6px 10px; border-radius:8px; background:rgba(255,255,255,0.04); font-size:12px; display:flex; justify-content:space-between; gap:10px;">
+                      <span><strong>{{ s.size }}</strong></span>
+                      <span class="muted">
+                        {{ s.quantity_available }}/{{ s.quantity }}
+                      </span>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <span style="color:var(--text-muted)">{{ item.size|default:'—' }}</span>
+              {% endif %}
+            </td>
             <td>
               {% if item.status == 'available' %}
                 <span class="status-pill s-available">Доступно</span>

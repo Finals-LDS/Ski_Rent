@@ -119,9 +119,16 @@ class Rental(models.Model):
 class RentalItem(models.Model):
     rental = models.ForeignKey(Rental, on_delete=models.CASCADE, related_name='items')
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE)
+    equipment_size = models.ForeignKey(
+        'equipment.EquipmentSize',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='rental_items',
+        verbose_name='Размер снаряжения'
+    )
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
     days = models.IntegerField(default=1)
-    size = models.CharField(max_length=20, blank=True, default='', verbose_name='Размер')
     quantity = models.PositiveIntegerField(default=1, verbose_name='Кол-во')
 
     def get_total(self):
@@ -130,18 +137,33 @@ class RentalItem(models.Model):
     def save(self, *args, **kwargs):
         if not self.price_per_day:
             self.price_per_day = self.equipment.price_per_day
+        if self.equipment_size and self.equipment_size.quantity < self.quantity:
+            raise ValidationError('Недостаточно количества выбранного размера.')
+        if self.equipment_size:
+            self.equipment_size.quantity_rented += self.quantity
+            self.equipment_size.save()
         if self.quantity < 1:
             self.quantity = 1
         super().save(*args, **kwargs)
-        # Recalculate parent rental total
-        rental = self.rental
-        rental.total_price = rental.calculate_total_price()
-        rental.save(update_fields=['total_price'])
+        if self.equipment_size:
+            rental = self.rental
+            rental.total_price = rental.calculate_total_price()
+            rental.save(update_fields=['total_price'])
+        else:
+            # Recalculate parent rental total
+            rental = self.rental
+            rental.total_price = rental.calculate_total_price()
+            rental.save(update_fields=['total_price'])
 
     def __str__(self):
-        size_str = f' (p.{self.size})' if self.size else ''
+        size_label = ''
+
+        if self.equipment_size:
+            size_label = f' ({self.equipment_size.size})'
+
         qty_str = f' x{self.quantity}' if self.quantity > 1 else ''
-        return f'{self.rental.contract_number} — {self.equipment.name}{size_str}{qty_str}'
+
+        return f'{self.rental.contract_number} — {self.equipment.name}{size_label}{qty_str}'
 
 
 class Discount(models.Model):

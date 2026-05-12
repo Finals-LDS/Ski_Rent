@@ -91,6 +91,16 @@
       background: rgba(248,81,73,.2);
     }
   
+    .size-row input {
+      width: 90%;
+    }
+
+    .remove-size {
+      height: 42px;
+      min-width: 42px;
+      padding: 0;
+    }
+  
   /* ═══════════════════════════════════════════
      MOBILE RESPONSIVE
   ═══════════════════════════════════════════ */
@@ -161,11 +171,6 @@
         </div>
 
         <div>
-          <label>Размер *</label>
-          <input name="size" value="{{ equipment.size|default:'' }}" required />
-        </div>
-
-        <div>
           <label>Цена/день *</label>
           <input
             name="price_per_day"
@@ -176,16 +181,90 @@
           />
         </div>
 
-        <div>
-          <label>Количество *</label>
-          <input
-            name="quantity"
-            type="number"
-            min="1"
-            value="{{ equipment.quantity|default:'1' }}"
-            required
-          />
+      </div>
+
+      <br />
+
+      <div>
+        <label style="margin-bottom: 12px; display:block;">
+          Размеры и количество
+        </label>
+
+        <div id="sizes-container">
+
+          {% if equipment and equipment.sizes.all %}
+            {% for size in equipment.sizes.all %}
+              <div class="size-row" style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; margin-bottom:12px; align-items:end;">
+
+                <div>
+                  <label>Размер</label>
+                  <input
+                    type="text"
+                    name="sizes[]"
+                    value="{{ size.size }}"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label>Количество</label>
+                  <input
+                    type="number"
+                    name="quantities[]"
+                    min="1"
+                    value="{{ size.quantity }}"
+                    required
+                  />
+                </div>
+
+                <button type="button" class="btn btn-danger remove-size">
+                  ✕
+                </button>
+
+              </div>
+            {% endfor %}
+          {% else %}
+
+            <div class="size-row" style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; margin-bottom:12px; align-items:end;">
+
+              <div>
+                <label>Размер</label>
+                <input
+                  type="text"
+                  name="sizes[]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label>Количество</label>
+                <input
+                  type="number"
+                  name="quantities[]"
+                  min="1"
+                  value="1"
+                  required
+                />
+              </div>
+
+              <button type="button" class="btn btn-danger remove-size">
+                ✕
+              </button>
+
+            </div>
+
+          {% endif %}
+
         </div>
+
+        <button type="button" id="add-size" class="btn btn-primary">
+          + Добавить размер
+        </button>
+      </div>
+
+      <br />
+
+      <div class="grid">
 
         <div>
           <label>Статус</label>
@@ -220,7 +299,66 @@
             e.preventDefault();
             alert('Выберите тип или введите новый тип');
           }
+
+          const sizeInputs = document.querySelectorAll('input[name="sizes[]"]');
+          const quantityInputs = document.querySelectorAll('input[name="quantities[]"]');
+
+          if (!sizeInputs.length || !quantityInputs.length) {
+            e.preventDefault();
+            alert('Добавьте хотя бы один размер');
+            return;
+          }
         });
+      </script>
+
+      <script>
+        const container = document.getElementById('sizes-container');
+        const addBtn = document.getElementById('add-size');
+
+        function attachRemoveHandlers() {
+          document.querySelectorAll('.remove-size').forEach(btn => {
+            btn.onclick = function() {
+              const rows = document.querySelectorAll('.size-row');
+
+              if (rows.length <= 1) {
+                alert('Должен остаться хотя бы один размер');
+                return;
+              }
+
+              this.closest('.size-row').remove();
+            };
+          });
+        }
+
+        addBtn.addEventListener('click', function() {
+          const row = document.createElement('div');
+
+          row.className = 'size-row';
+          row.style.display = 'grid';
+          row.style.gridTemplateColumns = '1fr 1fr auto';
+          row.style.gap = '12px';
+          row.style.marginBottom = '12px';
+          row.style.alignItems = 'end';
+
+          row.innerHTML = `
+            <div>
+              <label>Размер</label>
+              <input type="text" name="sizes[]" required />
+            </div>
+
+            <div>
+              <label>Количество</label>
+              <input type="number" name="quantities[]" min="1" value="1" required />
+            </div>
+
+            <button type="button" class="btn btn-danger remove-size">✕</button>
+          `;
+
+          container.appendChild(row);
+          attachRemoveHandlers();
+        });
+
+        attachRemoveHandlers();
       </script>
 
       <a class="link" href="{% url 'dashboard' %}">

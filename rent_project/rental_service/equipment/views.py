@@ -57,31 +57,50 @@ def equipment_page(request):
             return redirect("equipment")
         if action == "update":
             equipment = get_object_or_404(Equipment, pk=request.POST.get("equipment_id"))
+
             equipment.name = request.POST.get("equipment_name", "").strip()
-            equipment.size = request.POST.get("size", "").strip()
             equipment.price_per_day = Decimal(request.POST.get("price_per_day", "0").strip() or "0")
-            equipment.quantity = int(request.POST.get("quantity", "1").strip() or 1)
+            equipment.status = request.POST.get("status", "available").strip()
+
+            sizes = request.POST.getlist("sizes[]")
+            quantities = request.POST.getlist("quantities[]")
+
             equipment.save()
+
+            equipment.sizes.all().delete()
+
+            for size, qty in zip(sizes, quantities):
+                size = size.strip()
+
+                if not size:
+                    continue
+
+                EquipmentSize.objects.create(
+                    equipment=equipment,
+                    size=size,
+                    quantity=int(qty or 1),
+                )
+
             messages.success(request, "Снаряжение обновлено.")
             return redirect("equipment")
         if action == "create":
             equipment_type_name = request.POST.get("equipment_type_name", "").strip()
             equipment_type_id = request.POST.get("equipment_type_id", "").strip()
             equipment_name = request.POST.get("equipment_name", "").strip()
-            size = request.POST.get("size", "").strip() or None
             status = request.POST.get("status", "available").strip()
 
-            price_per_day_raw = request.POST.get("price_per_day", "").strip()
-            quantity_raw = request.POST.get("quantity", "").strip()
+            sizes = request.POST.getlist("sizes[]")
+            quantities = request.POST.getlist("quantities[]")
 
-            if not equipment_name or not price_per_day_raw or not quantity_raw:
-                error = "Заполните обязательные поля: название, цена/день и количество."
+            price_per_day_raw = request.POST.get("price_per_day", "").strip()
+
+            if not equipment_name or not price_per_day_raw:
+                error = "Заполните обязательные поля: название и цена/день."
             else:
                 try:
                     price_per_day = Decimal(price_per_day_raw)
-                    quantity = int(quantity_raw)
                 except (ValueError, InvalidOperation):
-                    error = "Некорректный формат цены или количества."
+                    error = "Некорректный формат цены."
                 else:
                     if equipment_type_name:
                         et = EquipmentType.objects.create(name=equipment_type_name)
@@ -93,14 +112,26 @@ def equipment_page(request):
                             et = get_object_or_404(EquipmentType, pk=equipment_type_id)
 
                     if et is not None:
-                        Equipment.objects.create(
+                        equipment = Equipment.objects.create(
                             name=equipment_name,
                             type=et,
-                            size=size,
                             status=status,
                             price_per_day=price_per_day,
-                            quantity=quantity,
+                            has_sizes=True,
                         )
+
+                        for size, qty in zip(sizes, quantities):
+                            size = size.strip()
+
+                            if not size:
+                                continue
+
+                            EquipmentSize.objects.create(
+                                equipment=equipment,
+                                size=size,
+                                quantity=int(qty or 1),
+                            )
+
                         return redirect("equipment")
 
     equipments = Equipment.objects.select_related("type").order_by(
@@ -141,15 +172,16 @@ def equipment_create_page(request):
         equipment_type_name = request.POST.get("equipment_type_name", "").strip()
         equipment_type_id = request.POST.get("equipment_type_id", "").strip()
         equipment_name = request.POST.get("equipment_name", "").strip()
-        size = request.POST.get("size", "").strip() or None
         status = request.POST.get("status", "available").strip()
         price_per_day_raw = request.POST.get("price_per_day", "").strip()
-        quantity_raw = request.POST.get("quantity", "").strip()
+
+        sizes = request.POST.getlist("sizes[]")
+        quantities = request.POST.getlist("quantities[]")
+
         try:
             price_per_day = Decimal(price_per_day_raw)
-            quantity = int(quantity_raw)
         except (ValueError, InvalidOperation):
-            error = "Некорректный формат цены или количества."
+            error = "Некорректный формат цены."
         else:
             if equipment_type_name:
                 et = EquipmentType.objects.create(name=equipment_type_name)
@@ -161,17 +193,47 @@ def equipment_create_page(request):
                 if equipment:
                     equipment.name = equipment_name
                     equipment.type = et
-                    equipment.size = size
                     equipment.status = status
                     equipment.price_per_day = price_per_day
-                    equipment.quantity = quantity
+                    equipment.has_sizes = True
                     equipment.save()
+
+                    equipment.sizes.all().delete()
+
+                    for size, qty in zip(sizes, quantities):
+                        size = size.strip()
+
+                        if not size:
+                            continue
+
+                        EquipmentSize.objects.create(
+                            equipment=equipment,
+                            size=size,
+                            quantity=int(qty or 1),
+                        )
+
                     messages.success(request, "Снаряжение обновлено.")
                 else:
-                    Equipment.objects.create(
-                        name=equipment_name, type=et, size=size, status=status,
-                        price_per_day=price_per_day, quantity=quantity,
+                    equipment = Equipment.objects.create(
+                        name=equipment_name,
+                        type=et,
+                        status=status,
+                        price_per_day=price_per_day,
+                        has_sizes=True,
                     )
+
+                    for size, qty in zip(sizes, quantities):
+                        size = size.strip()
+
+                        if not size:
+                            continue
+
+                        EquipmentSize.objects.create(
+                            equipment=equipment,
+                            size=size,
+                            quantity=int(qty or 1),
+                        )
+
                     messages.success(request, "Снаряжение добавлено.")
                 return redirect("equipment")
     return render(request, "forms/equipment_form.html", {

@@ -215,7 +215,7 @@ if certifi is not None:
 # ─────────────────────────────────────────
 #  AI Assistant (OpenRouter)
 # ─────────────────────────────────────────
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
 
 OPENROUTER_MODELS = [
     "mistralai/mistral-7b-instruct:free",

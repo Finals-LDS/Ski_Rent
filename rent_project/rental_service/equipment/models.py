@@ -17,16 +17,33 @@ class Equipment(models.Model):
 
     name = models.CharField(max_length=100)
     type = models.ForeignKey(EquipmentType, on_delete=models.CASCADE, related_name='equipment')
-    size = models.CharField(max_length=20, blank=True)
-    has_sizes = models.BooleanField(default=False, verbose_name='Есть размеры')
+    size = models.CharField(max_length=20, blank=True, null=True)
+    has_sizes = models.BooleanField(default=True, verbose_name='Есть размеры')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
-    quantity = models.IntegerField(default=1)
+    quantity = models.IntegerField(default=0)
     quantity_rented = models.IntegerField(default=0)
 
     @property
     def quantity_available(self):
+        if self.has_sizes and self.sizes.exists():
+            return sum(size.quantity_available for size in self.sizes.all())
+
         return self.quantity - self.quantity_rented
+
+    @property
+    def total_quantity(self):
+        if self.has_sizes and self.sizes.exists():
+            return sum(size.quantity for size in self.sizes.all())
+
+        return self.quantity
+
+    @property
+    def total_rented(self):
+        if self.has_sizes and self.sizes.exists():
+            return sum(size.quantity_rented for size in self.sizes.all())
+
+        return self.quantity_rented
 
     def __str__(self):
         return self.name
@@ -38,9 +55,35 @@ class EquipmentSize(models.Model):
     quantity = models.IntegerField(default=1, verbose_name='Кол-во')
     quantity_rented = models.IntegerField(default=0, verbose_name='В аренде')
 
-    @property
-    def quantity_available(self):
-        return self.quantity - self.quantity_rented
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        equipment = self.equipment
+
+        equipment.quantity = equipment.total_quantity
+        equipment.quantity_rented = equipment.total_rented
+
+        if equipment.quantity_available <= 0:
+            equipment.status = 'rented'
+        else:
+            equipment.status = 'available'
+
+        equipment.save(update_fields=['quantity', 'quantity_rented', 'status'])
+
+    def delete(self, *args, **kwargs):
+        equipment = self.equipment
+
+        super().delete(*args, **kwargs)
+
+        equipment.quantity = equipment.total_quantity
+        equipment.quantity_rented = equipment.total_rented
+
+        if equipment.quantity_available <= 0:
+            equipment.status = 'rented'
+        else:
+            equipment.status = 'available'
+
+        equipment.save(update_fields=['quantity', 'quantity_rented', 'status'])
 
     def __str__(self):
         return f'{self.equipment.name} - {self.size}'
