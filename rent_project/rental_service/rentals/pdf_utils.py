@@ -190,7 +190,7 @@ def _items_summary(rental):
     for it in items:
         name = it.equipment.name
         qty = f' ×{it.quantity}' if it.quantity > 1 else ''
-        size = f' (р. {it.size})' if it.size else ''
+        size = f' (р. {it.equipment_size.size})' if it.equipment_size else ''
         parts.append(f'{name}{qty}{size}')
     return '; '.join(parts)
 
