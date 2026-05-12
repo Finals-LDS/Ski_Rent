@@ -154,12 +154,22 @@ class RentalItem(models.Model):
                 - self.equipment_size.quantity_rented
                 + current_item_quantity
             )
-
             if available_quantity < self.quantity:
                 raise ValidationError(
                     f'Недостаточно товара на складе. '
                     f'Доступно: {max(available_quantity, 0)}'
                 )
+        super().save(*args, **kwargs)
+        rental = self.rental
+        rental.total_price = rental.calculate_total_price()
+        rental.save(update_fields=['total_price'])
+
+    def __str__(self):
+        size_label = ''
+        if self.equipment_size:
+            size_label = f' ({self.equipment_size.size})'
+        qty_str = f' x{self.quantity}' if self.quantity > 1 else ''
+        return f'{self.rental.contract_number} — {self.equipment.name}{size_label}{qty_str}'
 
         super().save(*args, **kwargs)
 
