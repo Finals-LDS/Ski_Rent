@@ -193,11 +193,16 @@ OTP_EXPIRE_SECONDS = 120
 
 
 # ─────────────────────────────────────────
-#  EMAIL  (Gmail API — без SMTP)
+#  EMAIL  (Gmail SMTP + App Password)
 # ─────────────────────────────────────────
-# Локально: укажи путь к token.pickle
-# На Render: сохрани base64(token.pickle) в переменную GMAIL_TOKEN_B64
-GMAIL_TOKEN_PATH = os.getenv("GMAIL_TOKEN_PATH", "token.pickle")
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+EMAIL_TIMEOUT = 20
 
 # ─────────────────────────────────────────
 #  AI Assistant (OpenRouter)
